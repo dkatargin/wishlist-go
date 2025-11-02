@@ -27,6 +27,13 @@ type AppConfigStruct struct {
 	Telegram struct {
 		BotToken string `yaml:"bot_token"`
 	} `yaml:"telegram"`
+	RabbitMQ struct {
+		Host     string `yaml:"host"`
+		Port     int    `yaml:"port"`
+		User     string `yaml:"user"`
+		Password string `yaml:"password"`
+		Vhost    string `yaml:"vhost"`
+	} `yaml:"rabbitmq"`
 	Sentry struct {
 		DSN         string `yaml:"dsn"`
 		Environment string `yaml:"environment"`

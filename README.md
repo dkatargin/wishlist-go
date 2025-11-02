@@ -7,6 +7,8 @@
 - **Backend**: Go 1.25, Gin Framework
 - **Frontend**: React 19, Vite, Material-UI
 - **База данных**: PostgreSQL 16
+- **Message Queue**: RabbitMQ 3.13
+- **Worker**: Go 1.25 (для обработки фоновых задач)
 - **Контейнеризация**: Docker, Docker Compose
 
 ## Структура проекта
@@ -14,6 +16,7 @@
 ```
 wishlist-go/
 ├── backend/          # Go backend сервер
+├── worker/           # Go worker для обработки фоновых задач
 ├── frontend/         # React frontend приложение
 ├── docker/           # Docker конфигурации
 ├── config.yaml       # Конфигурация для локальной разработки
@@ -55,6 +58,8 @@ docker-compose ps
 - **Frontend**: http://localhost:3000
 - **Backend API**: http://localhost:8080
 - **PostgreSQL**: localhost:5432
+- **RabbitMQ Management UI**: http://localhost:15672 (по умолчанию: wishlist_user / rabbitpassword)
+- **RabbitMQ**: localhost:5672
 
 ### Остановка приложения
 
@@ -116,6 +121,11 @@ docker build -f Dockerfile.frontend -t wishlist-frontend \
 - `server.host` - хост сервера (по умолчанию: 0.0.0.0 в Docker)
 - `server.port` - порт сервера (по умолчанию: 8080)
 - `database.*` - параметры подключения к PostgreSQL
+- `rabbitmq.host` - хост RabbitMQ (по умолчанию: wishlist-rabbitmq-develop в Docker)
+- `rabbitmq.port` - порт RabbitMQ (по умолчанию: 5672)
+- `rabbitmq.user` - пользователь RabbitMQ
+- `rabbitmq.password` - пароль RabbitMQ
+- `rabbitmq.vhost` - virtual host RabbitMQ
 - `telegram.bot_token` - токен Telegram бота
 - `sentry.dsn` - DSN для мониторинга ошибок
 
@@ -135,6 +145,72 @@ docker build -f Dockerfile.frontend -t wishlist-frontend \
 - `PUT /api/wishlists/:id` - обновить список
 - `DELETE /api/wishlists/:id` - удалить список
 
+## RabbitMQ и Worker
+
+Приложение использует RabbitMQ для асинхронной обработки событий. Backend выступает в роли producer (отправитель сообщений), а Worker - consumer (получатель и обработчик сообщений).
+
+### Архитектура
+
+1. **Backend** - отправляет сообщения в очередь при определенных событиях:
+   - Создание wishlist (`wishlist_created`)
+   - Создание wishitem (`wishitem_created`)
+   - Обновление account (`account_updated`)
+
+2. **Worker** - получает сообщения из очереди и обрабатывает их:
+   - Отправка уведомлений
+   - Обновление кэша
+   - Синхронизация данных
+   - Другая фоновая обработка
+
+### Формат сообщений
+
+```json
+{
+  "type": "wishlist_created",
+  "payload": {
+    "wishlist_id": "uuid",
+    "owner_id": 123,
+    "name": "My Wishlist"
+  },
+  "timestamp": "2025-11-02T12:00:00Z"
+}
+```
+
+### Использование в коде
+
+Пример отправки сообщения из backend:
+
+```go
+import "wishlist-go/internal/queue"
+
+// Отправка сообщения в очередь
+if queue.Client != nil {
+    err := queue.Client.PublishMessage("wishlist_created", map[string]interface{}{
+        "wishlist_id": wishlist.ID,
+        "owner_id":    userID,
+        "name":        wishlist.Name,
+    })
+    if err != nil {
+        log.Printf("Failed to publish message: %v", err)
+    }
+}
+```
+
+Worker автоматически получает и обрабатывает эти сообщения.
+
+### Мониторинг очереди
+
+RabbitMQ Management UI доступен по адресу http://localhost:15672
+- Логин: wishlist_user
+- Пароль: rabbitpassword
+
+В интерфейсе можно:
+- Просматривать очереди и их состояние
+- Мониторить количество сообщений
+- Отслеживать производительность
+- Управлять соединениями
+
+
 ## Мониторинг и логи
 
 ### Просмотр логов
@@ -144,8 +220,10 @@ docker-compose logs -f
 
 # Конкретный сервис
 docker-compose logs -f backend
+docker-compose logs -f worker
 docker-compose logs -f frontend
 docker-compose logs -f postgres
+docker-compose logs -f rabbitmq
 ```
 
 ### Проверка здоровья

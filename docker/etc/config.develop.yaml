@@ -16,6 +16,13 @@ database:
   max_idle_connections: 5
   connection_max_lifetime: 5m
 
+rabbitmq:
+  host: wishlist-rabbitmq-develop
+  port: 5672
+  user: wishlist_user
+  password: rabbitpassword
+  vhost: wishlist
+
 telegram:
   bot_token: YOUR_TELEGRAM_BOT_TOKEN_HERE
 

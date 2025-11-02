@@ -24,6 +24,29 @@ services:
     labels:
       - "wishlist.environment=develop"
 
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: wishlist-rabbitmq-develop
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-wishlist_user}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-rabbitpassword}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-wishlist}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq_data_develop:/var/lib/rabbitmq
+    networks:
+      - wishlist-network-develop
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    labels:
+      - "wishlist.environment=develop"
+
   backend:
     build:
       context: ../backend
@@ -37,6 +60,8 @@ services:
       - "${DELVE_PORT:-2345}:2345"  # Delve debugger
     depends_on:
       postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     environment:
       - GIN_MODE=debug
@@ -78,11 +103,39 @@ services:
       - "wishlist.environment=develop"
     restart: unless-stopped
 
+  worker:
+    build:
+      context: ../worker
+      dockerfile: Dockerfile.develop
+      args:
+        - GO_VERSION=${GO_VERSION:-1.25}
+    container_name: wishlist-worker-develop
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      - CONFIG_PATH=/app/config.yaml
+      - LOG_LEVEL=debug
+    volumes:
+      - ../worker:/app
+      - ../docker/etc/config.develop.yaml:/app/config.yaml:ro
+      - worker-go-cache:/go/pkg/mod
+    networks:
+      - wishlist-network-develop
+    command: air -c .air.toml
+    labels:
+      - "wishlist.environment=develop"
+    restart: unless-stopped
+
 volumes:
   postgres_data_develop:
     name: wishlist_postgres_develop
+  rabbitmq_data_develop:
+    name: wishlist_rabbitmq_develop
   go-cache:
     name: wishlist_go_cache
+  worker-go-cache:
+    name: wishlist_worker_go_cache
   frontend-node-modules:
     name: wishlist_frontend_node_modules
 

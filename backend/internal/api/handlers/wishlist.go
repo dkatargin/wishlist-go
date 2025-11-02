@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 	"wishlist-go/internal/api/middleware"
+	"wishlist-go/internal/queue"
 	"wishlist-go/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -76,6 +77,16 @@ func CreateWishlist(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error creating wishlist"})
 		return
 	}
+
+	// Отправляем сообщение в RabbitMQ о создании wishlist
+	if queue.Client != nil {
+		_ = queue.Client.PublishMessage("wishlist_created", map[string]interface{}{
+			"wishlist_id": wishlist.ShareCode,
+			"owner_id":    *wl.Owner,
+			"name":        *wl.Name,
+		})
+	}
+
 	c.JSON(http.StatusOK, gin.H{"wishlist": wishlist})
 }
 

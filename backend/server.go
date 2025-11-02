@@ -6,6 +6,7 @@ import (
 	"wishlist-go/internal/api"
 	"wishlist-go/internal/config"
 	"wishlist-go/internal/db"
+	"wishlist-go/internal/queue"
 
 	"github.com/gin-gonic/gin"
 )
@@ -24,6 +25,15 @@ func main() {
 	err = db.ConnectDB()
 	if err != nil {
 		panic("Failed to connect to the database: " + err.Error())
+	}
+
+	// Подключаемся к RabbitMQ
+	err = queue.ConnectRabbitMQ()
+	if err != nil {
+		log.Printf("Failed to connect to RabbitMQ: %v", err)
+		log.Println("Continuing without RabbitMQ support")
+	} else {
+		defer queue.Client.Close()
 	}
 
 	router := gin.Default()
