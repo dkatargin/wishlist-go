@@ -28,10 +28,7 @@ coverage/
 
 # Config files (keep templates)
 config.yaml
-.env
-.env.local
-.env.debug
-.env.*.local
+.env*
 
 # Keep .env templates
 !.env.example
