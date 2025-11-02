@@ -21,17 +21,6 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-// Config структура для конфигурации worker
-type Config struct {
-	RabbitMQ struct {
-		Host     string `yaml:"host"`
-		Port     int    `yaml:"port"`
-		User     string `yaml:"user"`
-		Password string `yaml:"password"`
-		Vhost    string `yaml:"vhost"`
-	} `yaml:"rabbitmq"`
-}
-
 // Message структура входящего сообщения
 type Message struct {
 	Type      string                 `json:"type"`
