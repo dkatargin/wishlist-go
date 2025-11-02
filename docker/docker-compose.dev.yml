@@ -105,7 +105,7 @@ services:
 
   worker:
     build:
-      context: ../worker
+      context: ../backend/worker
       dockerfile: Dockerfile.develop
       args:
         - GO_VERSION=${GO_VERSION:-1.25}

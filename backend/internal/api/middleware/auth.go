@@ -11,8 +11,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"wishlist-go/internal/config"
-	"wishlist-go/internal/service"
+	"wishlist-api/internal/config"
+	"wishlist-api/internal/service"
 
 	"github.com/gin-gonic/gin"
 )

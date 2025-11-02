@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 	"time"
-	"wishlist-go/internal/config"
+	"wishlist-api/internal/config"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -135,4 +135,37 @@ func (c *RabbitMQClient) Close() error {
 
 	log.Println("RabbitMQ connection closed")
 	return nil
+}
+
+// ConsumeMessages настраивает consumer для получения сообщений из очереди
+func (c *RabbitMQClient) ConsumeMessages() (<-chan amqp.Delivery, error) {
+	if c == nil {
+		return nil, fmt.Errorf("RabbitMQ client is not initialized")
+	}
+
+	// Устанавливаем prefetch count для равномерного распределения
+	err := c.channel.Qos(
+		1,     // prefetch count
+		0,     // prefetch size
+		false, // global
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to set QoS: %w", err)
+	}
+
+	// Начинаем получать сообщения
+	msgs, err := c.channel.Consume(
+		c.queue.Name, // queue
+		"",           // consumer
+		false,        // auto-ack
+		false,        // exclusive
+		false,        // no-local
+		false,        // no-wait
+		nil,          // args
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register a consumer: %w", err)
+	}
+
+	return msgs, nil
 }

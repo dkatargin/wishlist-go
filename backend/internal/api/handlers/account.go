@@ -2,8 +2,8 @@ package handlers
 
 import (
 	"net/http"
-	"wishlist-go/internal/api/middleware"
-	"wishlist-go/internal/service"
+	"wishlist-api/internal/api/middleware"
+	"wishlist-api/internal/service"
 
 	"github.com/gin-gonic/gin"
 )

@@ -43,3 +43,17 @@ type WishReservation struct {
 	Wish     WishItem `json:"-" gorm:"foreignKey:WishID"`
 	Reserver Account  `json:"-" gorm:"foreignKey:ReserverID"`
 }
+
+type WishItemDataRequest struct {
+	ID           int64     `gorm:"primaryKey;autoIncrement" json:"id"`
+	RequestID    uuid.UUID `gorm:"type:uuid;uniqueIndex;not null" json:"request_id"`
+	OwnerID      int64     `gorm:"index;not null" json:"owner_id"`
+	WishListCode uuid.UUID `gorm:"type:uuid; index;not null" json:"wishlist_code"`
+	WishID       int64     `json:"wish_id"`
+	Status       string    `gorm:"not null" json:"status"` // возможные значения: "pending", "completed", "failed"
+	CreatedAt    int64     `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt    int64     `gorm:"autoUpdateTime" json:"updated_at"`
+
+	Owner    Account  `json:"-" gorm:"foreignKey:OwnerID"`
+	WishList WishList `json:"-" gorm:"foreignKey:WishListCode;references:ShareCode"`
+}

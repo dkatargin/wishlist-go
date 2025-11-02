@@ -1,4 +1,4 @@
-module wishlist-go
+module wishlist-api
 
 go 1.25
 

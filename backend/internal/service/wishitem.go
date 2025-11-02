@@ -1,8 +1,8 @@
 package service
 
 import (
-	"wishlist-go/internal/db"
-	"wishlist-go/internal/db/models"
+	"wishlist-api/internal/db"
+	"wishlist-api/internal/db/models"
 
 	"github.com/google/uuid"
 )

@@ -3,8 +3,8 @@ package db
 import (
 	"fmt"
 	"log"
-	"wishlist-go/internal/config"
-	"wishlist-go/internal/db/models"
+	"wishlist-api/internal/config"
+	"wishlist-api/internal/db/models"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -39,6 +39,7 @@ func ConnectDB() (err error) {
 		&models.WishItem{},
 		&models.WishReservation{},
 		&models.Migration{},
+		&models.WishItemDataRequest{},
 	)
 	if err != nil {
 		return fmt.Errorf("auto migration failed: %w", err)

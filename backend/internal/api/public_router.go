@@ -1,8 +1,8 @@
 package api
 
 import (
-	"wishlist-go/internal/api/handlers"
-	"wishlist-go/internal/api/middleware"
+	"wishlist-api/internal/api/handlers"
+	"wishlist-api/internal/api/middleware"
 
 	"github.com/gin-gonic/gin"
 )

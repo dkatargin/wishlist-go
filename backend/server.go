@@ -3,10 +3,10 @@ package main
 import (
 	"flag"
 	"log"
-	"wishlist-go/internal/api"
-	"wishlist-go/internal/config"
-	"wishlist-go/internal/db"
-	"wishlist-go/internal/queue"
+	"wishlist-api/internal/api"
+	"wishlist-api/internal/config"
+	"wishlist-api/internal/db"
+	"wishlist-api/internal/queue"
 
 	"github.com/gin-gonic/gin"
 )
