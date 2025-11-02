@@ -19,7 +19,7 @@ export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(version),
     VITE_BACKEND_HOST: JSON.stringify(
-      process.env.VITE_BACKEND_HOST || "wish.exo.icu",
+      process.env.VITE_BACKEND_HOST || "wish.dimhost.ru",
     ),
     VITE_BACKEND_PORT: JSON.stringify(process.env.VITE_BACKEND_PORT || "443"),
     VITE_BACKEND_SCHEME: JSON.stringify(
