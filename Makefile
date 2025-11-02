@@ -1,9 +1,8 @@
-.PHONY: help dev debug prod logs clean test build install deps health restart
+.PHONY: help dev prod logs clean test build install deps health restart
 export COMPOSE_PROJECT_NAME=wishlist
 # Переменные
 DOCKER_COMPOSE := docker compose
 DEV_COMPOSE := $(DOCKER_COMPOSE) -f docker/docker-compose.dev.yml
-DEBUG_COMPOSE := $(DOCKER_COMPOSE) -f docker/docker-compose.debug.yml
 PROD_COMPOSE := $(DOCKER_COMPOSE) -f docker/docker-compose.yml
 
 # Цвета для красивого вывода
@@ -18,11 +17,10 @@ help:
 	@echo ""
 	@echo "$(YELLOW)Управление окружениями:$(NC)"
 	@echo "  make dev            - Запустить development окружение (hot-reload)"
-	@echo "  make debug          - Запустить debug окружение (с отладчиком)"
 	@echo "  make prod           - Запустить production окружение"
 	@echo ""
 	@echo "$(YELLOW)Управление сервисами:$(NC)"
-	@echo "  make up ENV=dev     - Запустить окружение (dev/debug/prod)"
+	@echo "  make up ENV=dev     - Запустить окружение (dev/prod)"
 	@echo "  make down ENV=dev   - Остановить окружение"
 	@echo "  make restart ENV=dev - Перезапустить окружение"
 	@echo "  make logs ENV=dev   - Показать логи (опционально SERVICE=backend)"
@@ -56,6 +54,8 @@ help:
 ## dev: Запустить development окружение с hot-reload
 dev:
 	@echo "$(GREEN)Запуск development окружения...$(NC)"
+	@echo "$(YELLOW)Backend Delve debugger будет доступен на порту 2345$(NC)"
+	@echo "$(YELLOW)Frontend доступен на http://localhost:3002$(NC)"
 	@$(DEV_COMPOSE) up --build
 
 ## dev-detached: Запустить dev в фоне
@@ -63,19 +63,6 @@ dev-d:
 	@echo "$(GREEN)Запуск development окружения в фоновом режиме...$(NC)"
 	@$(DEV_COMPOSE) up -d --build
 	@make health ENV=dev
-
-## debug: Запустить debug окружение с Delve debugger
-debug:
-	@echo "$(GREEN)Запуск debug окружения...$(NC)"
-	@echo "$(YELLOW)Backend Delve debugger будет доступен на порту 2345$(NC)"
-	@echo "$(YELLOW)Frontend доступен на http://localhost:3002$(NC)"
-	@$(DEBUG_COMPOSE) up --build
-
-## debug-detached: Запустить debug в фоне
-debug-d:
-	@echo "$(GREEN)Запуск debug окружения в фоновом режиме...$(NC)"
-	@$(DEBUG_COMPOSE) up -d --build
-	@make health ENV=debug
 
 ## prod: Запустить production окружение
 prod:
@@ -87,7 +74,6 @@ prod:
 down:
 	@echo "$(YELLOW)Остановка всех окружений...$(NC)"
 	@$(DEV_COMPOSE) down 2>/dev/null || true
-	@$(DEBUG_COMPOSE) down 2>/dev/null || true
 	@$(PROD_COMPOSE) down 2>/dev/null || true
 
 ## logs: Показать логи (использование: make logs ENV=dev SERVICE=backend)
@@ -98,12 +84,6 @@ logs:
 		else \
 			$(DEV_COMPOSE) logs -f $(SERVICE); \
 		fi \
-	elif [ "$(ENV)" = "debug" ]; then \
-		if [ -z "$(SERVICE)" ]; then \
-			$(DEBUG_COMPOSE) logs -f; \
-		else \
-			$(DEBUG_COMPOSE) logs -f $(SERVICE); \
-		fi \
 	elif [ "$(ENV)" = "prod" ]; then \
 		if [ -z "$(SERVICE)" ]; then \
 			$(PROD_COMPOSE) logs -f; \
@@ -111,19 +91,17 @@ logs:
 			$(PROD_COMPOSE) logs -f $(SERVICE); \
 		fi \
 	else \
-		echo "$(RED)Укажите ENV=dev|debug|prod$(NC)"; \
+		echo "$(RED)Укажите ENV=dev|prod$(NC)"; \
 	fi
 
 ## restart: Перезапустить сервис
 restart:
 	@if [ "$(ENV)" = "dev" ]; then \
 		$(DEV_COMPOSE) restart $(SERVICE); \
-	elif [ "$(ENV)" = "debug" ]; then \
-		$(DEBUG_COMPOSE) restart $(SERVICE); \
 	elif [ "$(ENV)" = "prod" ]; then \
 		$(PROD_COMPOSE) restart $(SERVICE); \
 	else \
-		echo "$(RED)Укажите ENV=dev|debug|prod$(NC)"; \
+		echo "$(RED)Укажите ENV=dev|prod$(NC)"; \
 	fi
 
 ## build: Собрать образы
@@ -144,12 +122,10 @@ shell:
 	fi
 	@if [ "$(ENV)" = "dev" ]; then \
 		$(DEV_COMPOSE) exec $(SVC) /bin/sh; \
-	elif [ "$(ENV)" = "debug" ]; then \
-		$(DEBUG_COMPOSE) exec $(SVC) /bin/sh; \
 	elif [ "$(ENV)" = "prod" ]; then \
 		$(PROD_COMPOSE) exec $(SVC) /bin/sh; \
 	else \
-		echo "$(RED)Укажите ENV=dev|debug|prod$(NC)"; \
+		echo "$(RED)Укажите ENV=dev|prod$(NC)"; \
 	fi
 
 ## exec: Выполнить команду в контейнере
@@ -160,12 +136,10 @@ exec:
 	fi
 	@if [ "$(ENV)" = "dev" ]; then \
 		$(DEV_COMPOSE) exec $(SVC) $(CMD); \
-	elif [ "$(ENV)" = "debug" ]; then \
-		$(DEBUG_COMPOSE) exec $(SVC) $(CMD); \
 	elif [ "$(ENV)" = "prod" ]; then \
 		$(PROD_COMPOSE) exec $(SVC) $(CMD); \
 	else \
-		echo "$(RED)Укажите ENV=dev|debug|prod$(NC)"; \
+		echo "$(RED)Укажите ENV=dev|prod$(NC)"; \
 	fi
 
 ## db-shell: Подключиться к PostgreSQL
@@ -196,7 +170,6 @@ test-frontend:
 clean:
 	@echo "$(YELLOW)Очистка контейнеров...$(NC)"
 	@$(DEV_COMPOSE) down --remove-orphans
-	@$(DEBUG_COMPOSE) down --remove-orphans
 	@$(PROD_COMPOSE) down --remove-orphans
 
 ## clean-volumes: Удалить volumes
@@ -206,7 +179,6 @@ clean-volumes:
 	echo; \
 	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
 		$(DEV_COMPOSE) down -v; \
-		$(DEBUG_COMPOSE) down -v; \
 		$(PROD_COMPOSE) down -v; \
 		echo "$(GREEN)Volumes удалены$(NC)"; \
 	fi
