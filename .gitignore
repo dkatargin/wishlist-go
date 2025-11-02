@@ -1,7 +1,68 @@
-.idea
+# IDEs
+.idea/
+.vscode/settings.json
+*.swp
+*.swo
+*~
+config*.yaml
 
+# Dependencies
 node_modules/
-dist/
+vendor/
 
+# Build outputs
+dist/
+build/
+tmp/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+backend/server
+
+# Test coverage
+*.out
+coverage/
+*.test
+
+# Config files (keep templates)
 config.yaml
+.env
+.env.local
+.env.debug
+.env.*.local
+
+# Keep .env templates
+!.env.example
+
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Docker
+*.pid
+
+# Go
+go.work
+go.work.sum
+
+# Debug
+__debug_bin
+dlv
+debug.test
+
+# Backup files
+*.bak
+*.backup
 

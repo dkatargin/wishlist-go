@@ -1,0 +1,57 @@
+server:
+  host: 0.0.0.0
+  port: 8080
+
+worker:
+  host: 0.0.0.0
+  port: 8090
+
+database:
+  host: postgres
+  port: 5432
+  name: wishlist
+  user: wishlist_user
+  password: securepassword
+  max_connections: 25
+  max_idle_connections: 5
+  connection_max_lifetime: 5m
+
+telegram:
+  bot_token: YOUR_TELEGRAM_BOT_TOKEN_HERE
+
+sentry:
+  dsn: YOUR_SENTRY_DSN_HERE
+  environment: debug
+  release: debug-1.0.0
+  enable_tracing: true
+  sample_rate: 1.0
+
+logging:
+  level: DEBUG
+  format: json
+  file: /tmp/wishlist_debug.log
+  enable_console: true
+
+cors:
+  allowed_origins:
+    - "http://localhost:3002"
+    - "http://localhost:3001"
+    - "http://localhost:3000"
+  allowed_methods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - OPTIONS
+  allowed_headers:
+    - "*"
+  allow_credentials: true
+
+profiling:
+  enabled: true
+  port: 6060
+
+metrics:
+  enabled: true
+  path: /metrics
+

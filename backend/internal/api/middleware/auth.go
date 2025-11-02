@@ -1,4 +1,4 @@
-package handlers
+package middleware
 
 import (
 	"crypto/hmac"
@@ -11,11 +11,11 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"wishlist-go/internal/config"
+	"wishlist-go/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
-
-var BotToken *string
 
 type TelegramUser struct {
 	ID           int64  `json:"id"`
@@ -34,25 +34,21 @@ type TelegramAuthData struct {
 }
 
 func validateTelegramAuthData(rawAuthData string, hash string) bool {
+	rawAuthData = strings.TrimSpace(rawAuthData)
+	rawAuthData = strings.Trim(rawAuthData, "'\"")
+	hash = strings.TrimSpace(hash)
+	hash = strings.Trim(hash, "'\"")
 	// Реализация проверки подписи данных Telegram
-	values, err := url.QueryUnescape(rawAuthData)
+	botToken := config.Config.Telegram.BotToken
+
+	values, err := url.ParseQuery(rawAuthData)
 	if err != nil {
 		return false
 	}
 
-	// Создаем map значений
-	vals := make(map[string]string)
-	for _, pair := range strings.Split(values, "&") {
-		parts := strings.SplitN(pair, "=", 2)
-		if len(parts) == 2 {
-			unescaped, _ := url.QueryUnescape(parts[1])
-			vals[parts[0]] = unescaped
-		}
-	}
-
 	// Создаем data_check_string из отсортированных ключей (кроме hash)
 	var keys []string
-	for k := range vals {
+	for k := range values {
 		if k != "hash" {
 			keys = append(keys, k)
 		}
@@ -60,13 +56,13 @@ func validateTelegramAuthData(rawAuthData string, hash string) bool {
 	sort.Strings(keys)
 	var dataCheckParts []string
 	for _, k := range keys {
-		dataCheckParts = append(dataCheckParts, fmt.Sprintf("%s=%s", k, vals[k]))
+		dataCheckParts = append(dataCheckParts, fmt.Sprintf("%s=%s", k, values.Get(k)))
 	}
 	dataCheckString := strings.Join(dataCheckParts, "\n")
 
 	// Вычисляем HMAC
 	h := hmac.New(sha256.New, []byte("WebAppData"))
-	h.Write([]byte(*BotToken))
+	h.Write([]byte(botToken))
 	hmacKey := h.Sum(nil)
 
 	finalHmac := hmac.New(sha256.New, hmacKey)
@@ -79,10 +75,11 @@ func validateTelegramAuthData(rawAuthData string, hash string) bool {
 func TelegramAuthMiddleware() gin.HandlerFunc {
 
 	return func(c *gin.Context) {
-		authHeader := c.GetHeader("HTTP_AUTHORIZATION")
+		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
 			c.JSON(401, gin.H{"error": "unauthorized"})
 			c.Abort()
+			return
 		}
 
 		re := regexp.MustCompile(`^tma (.+)$`)
@@ -100,11 +97,11 @@ func TelegramAuthMiddleware() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-
 		// извлекаем данные
 		var authData TelegramAuthData
 		authData.QueryID = values.Get("query_id")
 		authData.Hash = values.Get("hash")
+		authData.User = TelegramUser{}
 
 		// парсим auth_date
 		if authDateStr := values.Get("auth_date"); authDateStr != "" {
@@ -126,7 +123,25 @@ func TelegramAuthMiddleware() gin.HandlerFunc {
 		}
 
 		// добавляем данные в контекст
-		c.Set("telegram_auth", authData)
+		c.Set("telegram_auth", &authData)
+
+		// асинхронно создаем аккаунт, если его нет
+		go func(authData TelegramAuthData) {
+			account := service.NewAccountService()
+			_, err := account.Get(authData.User.ID)
+			if err != nil {
+				if authData.User.ID == 0 {
+					c.JSON(401, gin.H{"error": "invalid Telegram user ID"})
+					c.Abort()
+				} else {
+					_, err := account.Create(authData.User.ID)
+					if err != nil {
+						fmt.Println("Failed to create account:", err)
+					}
+				}
+
+			}
+		}(authData)
 		c.Next()
 	}
 }

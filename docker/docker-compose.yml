@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: wishlist-postgres
+    environment:
+      POSTGRES_DB: wishlist
+      POSTGRES_USER: wishlist_user
+      POSTGRES_PASSWORD: securepassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - wishlist-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wishlist_user -d wishlist"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: wishlist-backend
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - GIN_MODE=release
+    networks:
+      - wishlist-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_BACKEND_HOST: localhost
+        VITE_BACKEND_PORT: 8080
+        VITE_BACKEND_SCHEME: http
+        APP_VERSION: 1.0.0
+    container_name: wishlist-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - wishlist-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  wishlist-network:
+    driver: bridge

@@ -6,6 +6,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func BasicHandler(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"msg": "Hello World"})
+func HealthCheck(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"msg": "ok"})
+}
+
+func OptionsHandler(c *gin.Context) {
+	c.Status(http.StatusNoContent)
 }

@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: wishlist-postgres-dev
+    environment:
+      POSTGRES_DB: wishlist
+      POSTGRES_USER: wishlist_user
+      POSTGRES_PASSWORD: securepassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    networks:
+      - wishlist-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wishlist_user -d wishlist"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+      target: builder
+    container_name: wishlist-backend-dev
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - GIN_MODE=debug
+    volumes:
+      - ../backend:/app
+      - ../config.docker.yaml:/root/config.yaml:ro
+    networks:
+      - wishlist-network
+    command: go run server.go
+
+  frontend:
+    image: oven/bun:1
+    container_name: wishlist-frontend-dev
+    ports:
+      - "3001:3001"
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+    working_dir: /app
+    environment:
+      - VITE_BACKEND_HOST=localhost
+      - VITE_BACKEND_PORT=8080
+      - VITE_BACKEND_SCHEME=http
+    networks:
+      - wishlist-network
+    command: sh -c "bun install && bun run dev --host 0.0.0.0 --port 3001"
+
+volumes:
+  postgres_data_dev:
+
+networks:
+  wishlist-network:
+    driver: bridge
+
