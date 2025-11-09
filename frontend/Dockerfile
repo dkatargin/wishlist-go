@@ -25,6 +25,7 @@ RUN bun run build
 
 # Production stage with nginx
 FROM nginx:alpine
+RUN apk add --no-cache xdg-utils
 
 # Copy built assets from builder
 COPY --from=builder /app/dist /usr/share/nginx/html

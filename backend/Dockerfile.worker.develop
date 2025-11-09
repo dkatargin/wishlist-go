@@ -18,5 +18,5 @@ RUN go mod download
 EXPOSE 8080 2345
 
 # По умолчанию используем air для hot-reload
-CMD ["air", "-c", ".air.toml"]
+CMD ["air", "-c", ".air.worker.toml"]
 

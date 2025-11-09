@@ -4,10 +4,8 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: wishlist-postgres-develop
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-wishlist}
-      POSTGRES_USER: ${POSTGRES_USER:-wishlist_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-securepassword}
+    env_file:
+      - .env.debug
     ports:
       - "${POSTGRES_PORT:-5433}:5432"
     volumes:
@@ -27,10 +25,8 @@ services:
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     container_name: wishlist-rabbitmq-develop
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-wishlist_user}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-rabbitpassword}
-      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-wishlist}
+    env_file:
+      - .env.debug
     ports:
       - "${RABBITMQ_PORT:-5672}:5672"
       - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
@@ -39,7 +35,7 @@ services:
     networks:
       - wishlist-network-develop
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -47,10 +43,10 @@ services:
     labels:
       - "wishlist.environment=develop"
 
-  backend:
+  api:
     build:
       context: ../backend
-      dockerfile: Dockerfile.develop
+      dockerfile: Dockerfile.api.develop
       args:
         - GO_VERSION=${GO_VERSION:-1.25}
         - BUILDKIT_INLINE_CACHE=1
@@ -63,42 +59,16 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-    environment:
-      - GIN_MODE=debug
-      - CONFIG_PATH=/app/config.yaml
-      - LOG_LEVEL=debug
-      - ENABLE_PROFILING=true
+    env_file:
+      - .env.debug
     volumes:
       - ../backend:/app
       - ../docker/etc/config.develop.yaml:/app/config.yaml:ro
+      - ../backend/.air.api.toml:/app/.air.api.toml:ro
       - go-cache:/go/pkg/mod  # Кэш Go модулей
     networks:
       - wishlist-network-develop
-    command: air -c .air.toml
-    labels:
-      - "wishlist.environment=develop"
-    restart: unless-stopped
-
-  frontend:
-    image: oven/bun:1
-    container_name: wishlist-frontend-develop
-    ports:
-      - "${FRONTEND_PORT:-3002}:3002"
-    volumes:
-      - ../frontend:/app
-      - frontend-node-modules:/app/node_modules
-    working_dir: /app
-    environment:
-      - VITE_BACKEND_HOST=${VITE_BACKEND_HOST:-localhost}
-      - VITE_BACKEND_PORT=${BACKEND_PORT:-8081}
-      - VITE_BACKEND_SCHEME=${VITE_BACKEND_SCHEME:-http}
-      - VITE_APP_VERSION=${APP_VERSION:-develop-1.0.0}
-      - VITE_AUTH_MOCKUP=${VITE_AUTH_MOCKUP}
-      - VITE_DEPLOYMENT_TYPE=development
-      - VITE_ENABLE_DEBUG=true
-    networks:
-      - wishlist-network-develop
-    command: sh -c "bun install && bun run dev --host 0.0.0.0 --port 3002"
+    command: air -c .air.api.toml
     labels:
       - "wishlist.environment=develop"
     restart: unless-stopped
@@ -113,19 +83,39 @@ services:
     depends_on:
       rabbitmq:
         condition: service_healthy
-    environment:
-      - CONFIG_PATH=/app/config.yaml
-      - LOG_LEVEL=debug
+    env_file:
+      - .env.debug
     volumes:
-      - ../worker:/app
+      - ../backend:/app
       - ../docker/etc/config.develop.yaml:/app/config.yaml:ro
+      - ../backend/.air.worker.toml:/app/.air.worker.toml:ro
       - worker-go-cache:/go/pkg/mod
     networks:
       - wishlist-network-develop
-    command: air -c .air.toml
+    command: air -c .air.worker.toml
     labels:
       - "wishlist.environment=develop"
     restart: unless-stopped
+
+  frontend:
+    image: oven/bun:1
+    container_name: wishlist-frontend-develop
+    ports:
+      - "${FRONTEND_PORT:-3002}:3002"
+    volumes:
+      - ../frontend:/app
+      - frontend-node-modules:/app/node_modules
+    working_dir: /app
+    env_file:
+      - .env.debug
+    networks:
+      - wishlist-network-develop
+    command: sh -c "bun install && bun run dev --host 0.0.0.0 --port 3002"
+    labels:
+      - "wishlist.environment=develop"
+    restart: unless-stopped
+
+
 
 volumes:
   postgres_data_develop:
