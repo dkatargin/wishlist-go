@@ -1,11 +1,12 @@
+# Air configuration for hot-reload
 root = "."
 testdata_dir = "testdata"
 tmp_dir = "tmp"
 
 [build]
   args_bin = []
-  bin = "./tmp/worker"
-  cmd = "GOPATH=/app/worker:/app/server:$GOPATH go build -o ./tmp/worker worker/worker.go"
+  bin = "./tmp/server"
+  cmd = "GOPATH=/app/worker:/app/server:$GOPATH go build -gcflags='all=-N -l' -o ./tmp/server server/server.go"
   delay = 1000
   exclude_dir = ["assets", "tmp", "vendor", "testdata"]
   exclude_file = []
@@ -13,10 +14,10 @@ tmp_dir = "tmp"
   exclude_unchanged = false
   follow_symlink = false
   full_bin = ""
-  include_dir = ["worker"]
-  include_ext = ["go", "tpl", "tmpl", "html", "yaml"]
+  include_dir = []
+  include_ext = ["go", "tpl", "tmpl", "html"]
   include_file = []
-  kill_delay = "500ms"
+  kill_delay = "0s"
   log = "build-errors.log"
   poll = false
   poll_interval = 0
@@ -34,7 +35,7 @@ tmp_dir = "tmp"
 
 [log]
   main_only = false
-  time = false
+  time = true
 
 [misc]
   clean_on_exit = false
@@ -42,3 +43,4 @@ tmp_dir = "tmp"
 [screen]
   clear_on_rebuild = false
   keep_scroll = true
+

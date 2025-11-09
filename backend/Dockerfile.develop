@@ -10,11 +10,10 @@ RUN go install github.com/air-verse/air@latest && \
 
 WORKDIR /app
 # Копирование go.mod и go.sum для кэширования зависимостей
-COPY worker/go.mod worker/go.sum ./
-COPY go.work go.work.sum ./
-
+COPY server/go.mod server/go.sum ./
+#COPY go.work go.work.sum ./
 RUN go mod download
-RUN ls -al ./
+
 # Остальное монтируется через volume
 EXPOSE 8080 2345
 

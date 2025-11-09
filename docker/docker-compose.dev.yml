@@ -46,7 +46,7 @@ services:
   api:
     build:
       context: ../backend
-      dockerfile: server/Dockerfile.develop
+      dockerfile: ../backend/Dockerfile.develop
       args:
         - GO_VERSION=${GO_VERSION:-1.25}
         - BUILDKIT_INLINE_CACHE=1
