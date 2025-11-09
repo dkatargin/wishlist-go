@@ -1,19 +1,23 @@
-FROM golang:1.25-alpine
+# Build stage with debugging tools
+FROM golang:1.25-alpine AS builder
+
+# Установка необходимых инструментов
+RUN apk add --no-cache git make gcc musl-dev ca-certificates tzdata bash curl
+
+# Установка инструментов для разработки
+RUN go install github.com/air-verse/air@latest && \
+    go install github.com/go-delve/delve/cmd/dlv@latest
 
 WORKDIR /app
+# Копирование go.mod и go.sum для кэширования зависимостей
+COPY worker/go.mod worker/go.sum ./
+COPY go.work go.work.sum ./
 
-# Установка необходимых пакетов
-RUN apk add --no-cache git curl
-
-# Установка Air для hot reload
-RUN go install github.com/air-verse/air@latest
-
-# Копируем go.mod и go.sum
-COPY go.mod go.sum ./
 RUN go mod download
+RUN ls -al ./
+# Остальное монтируется через volume
+EXPOSE 8080 2345
 
-# Копируем исходный код
-COPY . .
-
-# Команда запуска через Air
+# По умолчанию используем air для hot-reload
 CMD ["air", "-c", ".air.toml"]
+

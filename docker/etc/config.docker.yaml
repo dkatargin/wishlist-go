@@ -14,7 +14,7 @@ database:
   password: securepassword
 
 telegram:
-  bot_token: YOUR_TELEGRAM_BOT_TOKEN_HERE
+  bot_token: 7500649929:AAF0Al8Ix6gwWO8pSf9kqfygHue2nRjOi68
 
 sentry:
   dsn: YOUR_SENTRY_DSN_HERE

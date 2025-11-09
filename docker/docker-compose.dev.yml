@@ -46,7 +46,7 @@ services:
   api:
     build:
       context: ../backend
-      dockerfile: Dockerfile.api.develop
+      dockerfile: server/Dockerfile.develop
       args:
         - GO_VERSION=${GO_VERSION:-1.25}
         - BUILDKIT_INLINE_CACHE=1
@@ -64,19 +64,19 @@ services:
     volumes:
       - ../backend:/app
       - ../docker/etc/config.develop.yaml:/app/config.yaml:ro
-      - ../backend/.air.api.toml:/app/.air.api.toml:ro
+      - ../backend/server/.air.toml:/app/.air.toml:ro
       - go-cache:/go/pkg/mod  # Кэш Go модулей
     networks:
       - wishlist-network-develop
-    command: air -c .air.api.toml
+    command: air -c .air.toml
     labels:
       - "wishlist.environment=develop"
     restart: unless-stopped
 
   worker:
     build:
-      context: ../backend/worker
-      dockerfile: Dockerfile.develop
+      context: ../backend
+      dockerfile: worker/Dockerfile.develop
       args:
         - GO_VERSION=${GO_VERSION:-1.25}
     container_name: wishlist-worker-develop
@@ -88,17 +88,20 @@ services:
     volumes:
       - ../backend:/app
       - ../docker/etc/config.develop.yaml:/app/config.yaml:ro
-      - ../backend/.air.worker.toml:/app/.air.worker.toml:ro
+      - ../backend/worker/.air.toml:/app/.air.toml:ro
       - worker-go-cache:/go/pkg/mod
     networks:
       - wishlist-network-develop
-    command: air -c .air.worker.toml
+    command: air -c .air.toml
     labels:
       - "wishlist.environment=develop"
     restart: unless-stopped
 
   frontend:
-    image: oven/bun:1
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
+      target: builder
     container_name: wishlist-frontend-develop
     ports:
       - "${FRONTEND_PORT:-3002}:3002"

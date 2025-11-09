@@ -4,11 +4,12 @@ FROM oven/bun:1 AS builder
 WORKDIR /app
 
 # Copy package files
-COPY package.json bun.lock* ./
+COPY frontend/package.json frontend/bun.lock* ./
+COPY frontend/bunfig.toml ./
 RUN bun install --frozen-lockfile
 
 # Copy source code
-COPY . ./
+COPY frontend/ ./
 
 # Build the application
 ARG VITE_BACKEND_HOST=localhost
@@ -25,13 +26,12 @@ RUN bun run build
 
 # Production stage with nginx
 FROM nginx:alpine
-RUN apk add --no-cache xdg-utils
 
 # Copy built assets from builder
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Copy nginx configuration
-COPY ../docker/etc/nginx.conf /etc/nginx/conf.d/default.conf
+COPY docker/etc/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 

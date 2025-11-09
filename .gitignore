@@ -51,8 +51,8 @@ Thumbs.db
 *.pid
 
 # Go
-go.work
-go.work.sum
+backend/go.work
+backend/go.work.sum
 
 # Debug
 __debug_bin

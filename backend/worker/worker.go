@@ -11,11 +11,10 @@ import (
 	"strconv"
 	"syscall"
 	"time"
-	"wishlist-api/internal/config"
-	"wishlist-api/internal/db"
-	"wishlist-api/internal/db/models"
-	"wishlist-api/internal/queue"
-
+	"wishlist-api/server/config"
+	"wishlist-api/server/db"
+	"wishlist-api/server/db/models"
+	"wishlist-api/server/queue"
 	"wishlist-worker/crawler"
 
 	amqp "github.com/rabbitmq/amqp091-go"

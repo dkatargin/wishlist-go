@@ -59,12 +59,28 @@ const WishDetailForm = ({data, onSubmit, onDelete}: {
         onSubmit(e)
     }}>
         <Stack spacing={2}>
-            <TextField label="Ссылка на товар" name="product_url" required
-                       value={productUrl}
-                       onChange={(e) => {
-                           setProductUrl(e.target.value)
-                       }}
-            />
+
+            <Stack direction="row" spacing={1} alignItems="center">
+                <TextField
+                    label="Ссылка на товар"
+                    name="product_url"
+                    required
+                    fullWidth
+                    value={productUrl}
+                    onChange={(e) => {
+                        setProductUrl(e.target.value)
+                    }}
+                />
+                {!data && (<Button
+                    variant="outlined"
+                    type="submit"
+                    formNoValidate
+                    sx={{ whiteSpace: 'nowrap', px: '2rem', height: '3.5rem' }}
+                >
+                    Загрузить (beta)
+                </Button>)}
+            </Stack>
+
             <TextField
                 label="Название желания"
                 name="title"
@@ -86,11 +102,7 @@ const WishDetailForm = ({data, onSubmit, onDelete}: {
                     setPictureUrl(e.target.value)
                 }}
             />
-            {/*TODO: доделать скраппер*/}
-            {/*<Button component="label">*/}
-            {/*    Загрузить картинку*/}
-            {/*    <input type="file" accept="image/*" hidden/>*/}
-            {/*</Button>*/}
+
             <TextField
                 type="number"
                 label="Цена"
