@@ -24,7 +24,7 @@ func TestWishItemRepo_GetByWishlist_FiltersByListCode(t *testing.T) {
 		t.Fatalf("insert wishlist: %v", err)
 	}
 
-	// вставляем элемент напрямую моделью — изолируем баг колонки от конвертеров (P1).
+	// вставляем элемент напрямую моделью — изолируем баг колонки от конвертеров.
 	if err := db.Create(&wishItemModel{
 		WishListCode:   listCode,
 		OwnerID:        owner,

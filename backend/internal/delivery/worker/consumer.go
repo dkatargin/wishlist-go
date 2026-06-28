@@ -60,8 +60,8 @@ func (w *Consumer) handle(d amqp.Delivery) {
 	}
 }
 
-// handleCrawlProduct тянет товар краулером. Персист в WishItem подключается в
-// Phase 1 (producer-флоу + репозиторий); сейчас результат логируется.
+// handleCrawlProduct тянет товар краулером. Персист в WishItem (producer-флоу +
+// репозиторий) ещё не подключён; сейчас результат логируется.
 func (w *Consumer) handleCrawlProduct(payload map[string]interface{}, d amqp.Delivery) {
 	productURL, _ := payload["product_url"].(string)
 	if productURL == "" {

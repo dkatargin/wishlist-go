@@ -11,7 +11,7 @@ import (
 type Service struct {
 	repo         domain.WishItemRepository
 	wishlistRepo domain.WishlistRepository
-	mqClient     *queue.RabbitMQClient // P1.5: продьюсер crawl_product для POST .../wishes/crawl
+	mqClient     *queue.RabbitMQClient // продьюсер crawl_product (POST .../wishes/crawl) — ещё не подключён
 }
 
 func NewService(repo domain.WishItemRepository, wishlistRepo domain.WishlistRepository, mqClient *queue.RabbitMQClient) *Service {
