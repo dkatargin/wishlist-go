@@ -9,7 +9,9 @@ import (
 	"wishlist-go/internal/delivery/worker"
 	"wishlist-go/internal/infrastructure/config"
 	"wishlist-go/internal/infrastructure/crawler"
+	"wishlist-go/internal/infrastructure/database"
 	"wishlist-go/internal/infrastructure/queue"
+	"wishlist-go/internal/repository/postgres"
 )
 
 // WorkerApp — приложение фонового воркера (consumer очереди задач).
@@ -20,9 +22,11 @@ type WorkerApp struct {
 
 // NewWorkerApp собирает зависимости воркера.
 func NewWorkerApp(cfg *config.AppConfigStruct) *WorkerApp {
+	db := database.ConnectDB(&cfg.Database)
+	itemRepo := postgres.NewWishItemRepository(db)
 	mqClient := queue.NewRabbitMQClient(&cfg.RabbitMQ)
 	yaClient := crawler.NewYaMarketClient()
-	consumer := worker.NewConsumer(mqClient, yaClient)
+	consumer := worker.NewConsumer(mqClient, yaClient, itemRepo)
 
 	return &WorkerApp{
 		consumer: consumer,

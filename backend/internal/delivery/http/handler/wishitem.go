@@ -256,3 +256,42 @@ func (h *WishItemHandler) Delete(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "ok"})
 
 }
+
+// Crawl ставит в очередь задачу на парсинг товара по URL; consumer дозаполнит WishItem.
+func (h *WishItemHandler) Crawl(c *gin.Context) {
+	auth, exist := c.Get("telegram_auth")
+	if !exist {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	listId := c.Param("listId")
+	shareCode, err := uuid.Parse(listId)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"msg": "invalid list id"})
+		return
+	}
+
+	var req dto.CrawlWishItemRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	userID := auth.(*middleware.TelegramAuthData).User.ID
+	if !h.wishlistUsecase.CheckAccess(c.Request.Context(), shareCode, userID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+
+	if err := h.usecase.RequestCrawl(c.Request.Context(), shareCode, userID, req.MarketURL); err != nil {
+		if errors.Is(err, wishitem.ErrInvalidMarketURL) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported market url"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to enqueue crawl"})
+		return
+	}
+
+	c.JSON(http.StatusAccepted, gin.H{"message": "crawl enqueued"})
+}

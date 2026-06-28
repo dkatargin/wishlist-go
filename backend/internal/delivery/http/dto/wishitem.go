@@ -10,6 +10,10 @@ type CreateWishItemRequest struct {
 	MarketQuantity int     `json:"market_quantity"`
 }
 
+type CrawlWishItemRequest struct {
+	MarketURL string `json:"market_url" binding:"required"`
+}
+
 type UpdateWishItemRequest struct {
 	Name           *string  `json:"name"`
 	Priority       *int     `json:"priority"`

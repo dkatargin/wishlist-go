@@ -2,6 +2,7 @@ package wishitem
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"wishlist-go/internal/domain"
 
@@ -42,6 +43,65 @@ func TestCreateWishItem_DefaultsCurrencyAndPersistsOwner(t *testing.T) {
 	}
 	if repo.created == nil || repo.created.OwnerID != 1 || repo.created.Priority != 3 {
 		t.Fatalf("item not persisted with owner/priority: %+v", repo.created)
+	}
+}
+
+type mockPublisher struct {
+	msgType string
+	payload map[string]interface{}
+	err     error
+}
+
+func (m *mockPublisher) PublishMessage(msgType string, payload map[string]interface{}) error {
+	m.msgType = msgType
+	m.payload = payload
+	return m.err
+}
+
+func TestRequestCrawl_PublishesCrawlProduct(t *testing.T) {
+	pub := &mockPublisher{}
+	svc := NewService(nil, nil, pub)
+	code := uuid.New()
+	url := "https://market.yandex.ru/product/123"
+
+	if err := svc.RequestCrawl(context.Background(), code, 42, url); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if pub.msgType != "crawl_product" {
+		t.Fatalf("ожидался тип crawl_product, получили %q", pub.msgType)
+	}
+	if pub.payload["product_url"] != url ||
+		pub.payload["wish_list_code"] != code.String() ||
+		pub.payload["owner_id"] != int64(42) {
+		t.Fatalf("неверный payload: %v", pub.payload)
+	}
+}
+
+func TestRequestCrawl_RejectsBadURL(t *testing.T) {
+	pub := &mockPublisher{}
+	svc := NewService(nil, nil, pub)
+
+	for _, bad := range []string{
+		"http://market.yandex.ru/x",           // не https
+		"https://market.yandex.ru.attacker/x", // обход подстроки в host
+		"https://evil.test/market.yandex.ru",  // обход подстроки в path
+		"://broken",
+	} {
+		if err := svc.RequestCrawl(context.Background(), uuid.New(), 1, bad); !errors.Is(err, ErrInvalidMarketURL) {
+			t.Fatalf("URL %q: ожидался ErrInvalidMarketURL, получили %v", bad, err)
+		}
+	}
+	if pub.msgType != "" {
+		t.Fatal("при невалидном URL ничего не должно публиковаться")
+	}
+}
+
+func TestRequestCrawl_PropagatesPublisherError(t *testing.T) {
+	boom := errors.New("publish failed")
+	svc := NewService(nil, nil, &mockPublisher{err: boom})
+
+	if err := svc.RequestCrawl(context.Background(), uuid.New(), 1, "https://market.yandex.ru/x"); !errors.Is(err, boom) {
+		t.Fatalf("ожидалась ошибка publisher, получили %v", err)
 	}
 }
 

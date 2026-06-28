@@ -63,6 +63,7 @@ func NewAPIApp(cfg *config.AppConfigStruct) *APIApp {
 			authorized.DELETE("list/:listId", wishlistHandler.Delete)
 			authorized.GET("list/:listId/wishes", wishitemHandler.List)
 			authorized.POST("list/:listId/wishes", wishitemHandler.Create)
+			authorized.POST("list/:listId/wishes/crawl", wishitemHandler.Crawl)
 			authorized.GET("list/:listId/wishes/:wishId", wishitemHandler.Get)
 			authorized.PATCH("list/:listId/wishes/:wishId", wishitemHandler.Update)
 			authorized.DELETE("list/:listId/wishes/:wishId", wishitemHandler.Delete)

@@ -2,24 +2,59 @@ package wishitem
 
 import (
 	"context"
+	"errors"
+	"net/url"
+	"strings"
 	"wishlist-go/internal/domain"
-	"wishlist-go/internal/infrastructure/queue"
 
 	"github.com/google/uuid"
 )
 
+// ErrInvalidMarketURL — market_url не из поддерживаемого маркетплейса.
+var ErrInvalidMarketURL = errors.New("unsupported market url")
+
+// Publisher публикует сообщения в очередь задач (продьюсер).
+type Publisher interface {
+	PublishMessage(msgType string, payload map[string]interface{}) error
+}
+
 type Service struct {
 	repo         domain.WishItemRepository
 	wishlistRepo domain.WishlistRepository
-	mqClient     *queue.RabbitMQClient // продьюсер crawl_product (POST .../wishes/crawl) — ещё не подключён
+	publisher    Publisher
 }
 
-func NewService(repo domain.WishItemRepository, wishlistRepo domain.WishlistRepository, mqClient *queue.RabbitMQClient) *Service {
+func NewService(repo domain.WishItemRepository, wishlistRepo domain.WishlistRepository, publisher Publisher) *Service {
 	return &Service{
 		repo:         repo,
 		wishlistRepo: wishlistRepo,
-		mqClient:     mqClient,
+		publisher:    publisher,
 	}
+}
+
+// RequestCrawl публикует задачу на парсинг товара по URL; consumer дозаполнит WishItem.
+func (s *Service) RequestCrawl(ctx context.Context, shareCode uuid.UUID, ownerID int64, marketURL string) error {
+	if !isAllowedMarketURL(marketURL) {
+		return ErrInvalidMarketURL
+	}
+	return s.publisher.PublishMessage("crawl_product", map[string]interface{}{
+		"product_url":    marketURL,
+		"wish_list_code": shareCode.String(),
+		"owner_id":       ownerID,
+	})
+}
+
+// isAllowedMarketURL пропускает только https-URL поддерживаемого маркетплейса
+// (host сверяется строго, без подстрочного обхода) — защита от SSRF на произвольный хост.
+func isAllowedMarketURL(raw string) bool {
+	u, err := url.Parse(raw)
+	if err != nil || u.Scheme != "https" {
+		return false
+	}
+	if u.Host == "market.yandex.ru" {
+		return true
+	}
+	return u.Host == "yandex.ru" && strings.HasPrefix(u.Path, "/products")
 }
 
 func (s *Service) GetWishItemsByWishlist(ctx context.Context, shareCode uuid.UUID, limit int, offset int) ([]*domain.WishItem, error) {
