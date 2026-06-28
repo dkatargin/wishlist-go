@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"wishlist-go/internal/delivery/http/dto"
 	"wishlist-go/internal/delivery/http/middleware"
+	"wishlist-go/internal/domain"
 	"wishlist-go/internal/usecase/wishlist"
 
 	"github.com/gin-gonic/gin"
@@ -74,6 +76,42 @@ func (h *WishlistHandler) List(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, wishlists)
+}
+
+func (h *WishlistHandler) Get(c *gin.Context) {
+	auth, exist := c.Get("telegram_auth")
+	if !exist {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	userID := auth.(*middleware.TelegramAuthData).User.ID
+
+	listId := c.Param("listId")
+	shareCode, err := uuid.Parse(listId)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid list id"})
+		return
+	}
+
+	wl, isOwner, err := h.usecase.GetDetail(c.Request.Context(), shareCode, userID)
+	if err != nil {
+		if errors.Is(err, domain.ErrWishlistNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "wishlist not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch wishlist"})
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.WishlistDetailResponse{
+		ShareCode:   wl.ShareCode,
+		Name:        wl.Name,
+		Description: wl.Description,
+		Color:       wl.Color,
+		CreatedAt:   wl.CreatedAt,
+		UpdatedAt:   wl.UpdatedAt,
+		IsOwner:     isOwner,
+	})
 }
 
 func (h *WishlistHandler) Update(c *gin.Context) {

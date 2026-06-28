@@ -44,17 +44,21 @@ func NewAPIApp(cfg *config.AppConfigStruct) *APIApp {
 	accountHandler := handler.NewAccountHandler(accountUC)
 	wishlistHandler := handler.NewWishlistHandler(wishlistUC)
 	wishitemHandler := handler.NewWishItemHandler(wishitemUC, wishlistUC)
+	shareHandler := handler.NewShareHandler(wishlistUC, wishitemUC)
 	// Routes
 	api := router.Group("/api/v1")
 	{
 		api.OPTIONS("*path", handler.OptionsHandler)
 		api.GET("health", handler.HealthCheck)
+		// Публичный гостевой просмотр шаренного списка (без auth)
+		api.GET("share/:shareCode", shareHandler.Get)
 		// Authorized routes
 		authorized := api.Group("")
 		authorized.Use(middleware.TelegramAuthMiddleware(cfg.Telegram.BotToken, accountUC))
 		{
 			authorized.GET("list", wishlistHandler.List)
 			authorized.POST("list", wishlistHandler.Create)
+			authorized.GET("list/:listId", wishlistHandler.Get)
 			authorized.PATCH("list/:listId", wishlistHandler.Update)
 			authorized.DELETE("list/:listId", wishlistHandler.Delete)
 			authorized.GET("list/:listId/wishes", wishitemHandler.List)

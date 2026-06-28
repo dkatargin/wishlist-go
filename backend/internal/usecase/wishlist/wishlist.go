@@ -21,6 +21,20 @@ func (s *Service) GetWishlistsByOwner(ctx context.Context, ownerId int64, offset
 	return s.repo.GetWishlistsByOwnerID(ctx, ownerId, offset, limit)
 }
 
+// GetDetail возвращает вишлист по share-коду и признак владения (is_owner).
+func (s *Service) GetDetail(ctx context.Context, shareCode uuid.UUID, userID int64) (*domain.Wishlist, bool, error) {
+	wl, err := s.GetByCode(ctx, shareCode)
+	if err != nil {
+		return nil, false, err
+	}
+	return wl, wl.OwnerID == userID, nil
+}
+
+// GetByCode возвращает вишлист по share-коду (для публичного просмотра, без is_owner).
+func (s *Service) GetByCode(ctx context.Context, shareCode uuid.UUID) (*domain.Wishlist, error) {
+	return s.repo.GetWishlistByCode(ctx, shareCode)
+}
+
 // CreateWishlist создаем новый вишлист
 func (s *Service) CreateWishlist(ctx context.Context, ownerId int64, name string, description *string) (*domain.Wishlist, error) {
 	wl := &domain.Wishlist{

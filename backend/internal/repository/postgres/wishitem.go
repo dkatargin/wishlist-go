@@ -70,11 +70,14 @@ func (r *wishItemRepo) GetWishItemByID(id int64, wishlistCode uuid.UUID) (*domai
 }
 
 // GetWishItemsByWishlistID получает все элементы вишлиста
-func (r *wishItemRepo) GetWishItemsByWishlistID(wishlistCode uuid.UUID, limit int, offset int) ([]*domain.WishItem, error) {
+func (r *wishItemRepo) GetWishItemsByWishlistID(wishlistCode uuid.UUID, limit int, offset int, onlyActive bool) ([]*domain.WishItem, error) {
 	var models []wishItemModel
 
-	err := r.db.Where("wish_list_code = ?", wishlistCode.String()).
-		Order("priority DESC, created_at DESC").
+	q := r.db.Where("wish_list_code = ?", wishlistCode.String())
+	if onlyActive {
+		q = q.Where("is_done = ?", false)
+	}
+	err := q.Order("priority DESC, created_at DESC").
 		Limit(limit).
 		Offset(offset).
 		Find(&models).Error

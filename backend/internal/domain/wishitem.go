@@ -39,7 +39,7 @@ type WishItemUpdate struct {
 type WishItemRepository interface {
 	CreateWishItem(wishItem *WishItem) error
 	GetWishItemByID(id int64, wishlistCode uuid.UUID) (*WishItem, error)
-	GetWishItemsByWishlistID(wishlistCode uuid.UUID, limit int, offset int) ([]*WishItem, error)
+	GetWishItemsByWishlistID(wishlistCode uuid.UUID, limit int, offset int, onlyActive bool) ([]*WishItem, error)
 	UpdateWishItem(id int64, shareCode uuid.UUID, upd WishItemUpdate) error
 	DeleteWishItem(id int64) error
 }

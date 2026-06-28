@@ -23,7 +23,12 @@ func NewService(repo domain.WishItemRepository, wishlistRepo domain.WishlistRepo
 }
 
 func (s *Service) GetWishItemsByWishlist(ctx context.Context, shareCode uuid.UUID, limit int, offset int) ([]*domain.WishItem, error) {
-	return s.repo.GetWishItemsByWishlistID(shareCode, limit, offset)
+	return s.repo.GetWishItemsByWishlistID(shareCode, limit, offset, false)
+}
+
+// GetVisibleByWishlist — для гостевого просмотра: только невыполненные (is_done=false).
+func (s *Service) GetVisibleByWishlist(ctx context.Context, shareCode uuid.UUID, limit int, offset int) ([]*domain.WishItem, error) {
+	return s.repo.GetWishItemsByWishlistID(shareCode, limit, offset, true)
 }
 
 func (s *Service) GetWishItemByID(ctx context.Context, id int64, wlCode uuid.UUID) (*domain.WishItem, error) {

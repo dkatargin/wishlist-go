@@ -39,7 +39,7 @@ func TestWishItemRepo_GetByWishlist_FiltersByListCode(t *testing.T) {
 		t.Fatalf("insert wish item: %v", err)
 	}
 
-	items, err := NewWishItemRepository(db).GetWishItemsByWishlistID(listCode, 50, 0)
+	items, err := NewWishItemRepository(db).GetWishItemsByWishlistID(listCode, 50, 0, false)
 	if err != nil {
 		t.Fatalf("GetWishItemsByWishlistID: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestWishItemRepo_CreatePersistsFieldsAndSortsByPriority(t *testing.T) {
 		t.Fatalf("create high: %v", err)
 	}
 
-	items, err := repo.GetWishItemsByWishlistID(listCode, 50, 0)
+	items, err := repo.GetWishItemsByWishlistID(listCode, 50, 0, false)
 	if err != nil {
 		t.Fatalf("list: %v", err)
 	}
@@ -164,5 +164,45 @@ func TestWishItemRepo_UpdateScopedToList(t *testing.T) {
 	err := repo.UpdateWishItem(item.ID, listB, domain.WishItemUpdate{Name: &hacked})
 	if !errors.Is(err, domain.ErrWishItemNotFound) {
 		t.Fatalf("ожидался ErrWishItemNotFound при чужом списке, получили %v", err)
+	}
+}
+
+func TestWishItemRepo_GetByWishlist_OnlyActiveFiltersDone(t *testing.T) {
+	db := newTestDB(t)
+	ctx := context.Background()
+
+	var owner int64 = 666
+	if _, err := NewAccountRepository(db).CreateAccount(ctx, &owner); err != nil {
+		t.Fatalf("CreateAccount: %v", err)
+	}
+	listCode := uuid.New()
+	if err := db.Create(&wishlistModel{OwnerID: owner, Name: "l", ShareCode: listCode}).Error; err != nil {
+		t.Fatalf("insert wishlist: %v", err)
+	}
+	for _, it := range []wishItemModel{
+		{WishListCode: listCode, OwnerID: owner, Name: "done", IsDone: true, MarketLink: "m", MarketPicture: "p", MarketPrice: 1, MarketCurrency: "RUB", MarketQuantity: 1},
+		{WishListCode: listCode, OwnerID: owner, Name: "active", IsDone: false, MarketLink: "m", MarketPicture: "p", MarketPrice: 1, MarketCurrency: "RUB", MarketQuantity: 1},
+	} {
+		if err := db.Create(&it).Error; err != nil {
+			t.Fatalf("insert item: %v", err)
+		}
+	}
+
+	repo := NewWishItemRepository(db)
+
+	active, err := repo.GetWishItemsByWishlistID(listCode, 50, 0, true)
+	if err != nil {
+		t.Fatalf("list active: %v", err)
+	}
+	if len(active) != 1 || active[0].Name == nil || *active[0].Name != "active" {
+		t.Fatalf("onlyActive=true: ожидался 1 невыполненный 'active', получили %d", len(active))
+	}
+
+	all, err := repo.GetWishItemsByWishlistID(listCode, 50, 0, false)
+	if err != nil {
+		t.Fatalf("list all: %v", err)
+	}
+	if len(all) != 2 {
+		t.Fatalf("onlyActive=false: ожидалось 2, получили %d", len(all))
 	}
 }
