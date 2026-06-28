@@ -43,7 +43,7 @@ func NewAPIApp(cfg *config.AppConfigStruct) *APIApp {
 	// Handlers registration
 	accountHandler := handler.NewAccountHandler(accountUC)
 	wishlistHandler := handler.NewWishlistHandler(wishlistUC)
-	wishitemHandler := handler.NewWishItemHandler(wishitemUC)
+	wishitemHandler := handler.NewWishItemHandler(wishitemUC, wishlistUC)
 	// Routes
 	api := router.Group("/api/v1")
 	{
@@ -51,7 +51,7 @@ func NewAPIApp(cfg *config.AppConfigStruct) *APIApp {
 		api.GET("health", handler.HealthCheck)
 		// Authorized routes
 		authorized := api.Group("")
-		authorized.Use(middleware.TelegramAuthMiddleware())
+		authorized.Use(middleware.TelegramAuthMiddleware(cfg.Telegram.BotToken, accountUC))
 		{
 			authorized.GET("list", wishlistHandler.List)
 			authorized.POST("list", wishlistHandler.Create)

@@ -18,9 +18,10 @@ type WishItemHandler struct {
 	wishlistUsecase *wishlist.Service
 }
 
-func NewWishItemHandler(uc *wishitem.Service) *WishItemHandler {
+func NewWishItemHandler(uc *wishitem.Service, wlUC *wishlist.Service) *WishItemHandler {
 	return &WishItemHandler{
-		usecase: uc,
+		usecase:         uc,
+		wishlistUsecase: wlUC,
 	}
 }
 

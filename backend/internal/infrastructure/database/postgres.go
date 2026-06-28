@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 	"wishlist-go/internal/infrastructure/config"
-	"wishlist-go/internal/models"
+	pgrepo "wishlist-go/internal/repository/postgres"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -30,16 +30,8 @@ func ConnectDB(cfg *config.DB) *gorm.DB {
 		log.Fatal(err)
 	}
 
-	err = dbConnect.AutoMigrate(
-		&models.Account{},
-		&models.WishList{},
-		&models.WishItem{},
-		&models.WishReservation{},
-		&models.Migration{},
-		&models.WishItemDataRequest{},
-	)
-	if err != nil {
-		log.Fatalf("auto migration failed: %w", err)
+	if err := pgrepo.AutoMigrate(dbConnect); err != nil {
+		log.Fatalf("auto migration failed: %v", err)
 	}
 
 	return dbConnect

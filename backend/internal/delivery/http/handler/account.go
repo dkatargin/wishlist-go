@@ -10,10 +10,10 @@ import (
 )
 
 type AccountHandler struct {
-	usecase *account.AccountService
+	usecase *account.Service
 }
 
-func NewAccountHandler(e *account.AccountService) *AccountHandler {
+func NewAccountHandler(e *account.Service) *AccountHandler {
 	return &AccountHandler{
 		usecase: e,
 	}
@@ -27,7 +27,7 @@ func (h *AccountHandler) Delete(c *gin.Context) {
 	}
 	userID := auth.(*middleware.TelegramAuthData).User.ID
 
-	if err := h.usecase.Delete(userID); err != nil {
+	if err := h.usecase.Delete(c.Request.Context(), userID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

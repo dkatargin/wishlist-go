@@ -6,13 +6,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/url"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
-	"wishlist-api/server/config"
-	"wishlist-api/server/service"
+
+	"wishlist-go/internal/usecase/account"
 
 	"github.com/gin-gonic/gin"
 )
@@ -33,13 +34,11 @@ type TelegramAuthData struct {
 	Hash     string       `json:"hash"`
 }
 
-func validateTelegramAuthData(rawAuthData string, hash string) bool {
+func validateTelegramAuthData(rawAuthData string, hash string, botToken string) bool {
 	rawAuthData = strings.TrimSpace(rawAuthData)
 	rawAuthData = strings.Trim(rawAuthData, "'\"")
 	hash = strings.TrimSpace(hash)
 	hash = strings.Trim(hash, "'\"")
-	// Реализация проверки подписи данных Telegram
-	botToken := config.Config.Telegram.BotToken
 
 	values, err := url.ParseQuery(rawAuthData)
 	if err != nil {
@@ -72,7 +71,7 @@ func validateTelegramAuthData(rawAuthData string, hash string) bool {
 	return finalHmacResult == hash
 }
 
-func TelegramAuthMiddleware() gin.HandlerFunc {
+func TelegramAuthMiddleware(botToken string, accountUC *account.Service) gin.HandlerFunc {
 
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
@@ -116,8 +115,14 @@ func TelegramAuthMiddleware() gin.HandlerFunc {
 				return
 			}
 		}
-		if !validateTelegramAuthData(rawAuthData, authData.Hash) {
+		if !validateTelegramAuthData(rawAuthData, authData.Hash, botToken) {
 			c.JSON(401, gin.H{"error": "invalid Telegram auth data"})
+			c.Abort()
+			return
+		}
+
+		if authData.User.ID == 0 {
+			c.JSON(401, gin.H{"error": "invalid Telegram user ID"})
 			c.Abort()
 			return
 		}
@@ -125,23 +130,11 @@ func TelegramAuthMiddleware() gin.HandlerFunc {
 		// добавляем данные в контекст
 		c.Set("telegram_auth", &authData)
 
-		// асинхронно создаем аккаунт, если его нет
-		go func(authData TelegramAuthData) {
-			account := service.NewAccountService()
-			_, err := account.Get(authData.User.ID)
-			if err != nil {
-				if authData.User.ID == 0 {
-					c.JSON(401, gin.H{"error": "invalid Telegram user ID"})
-					c.Abort()
-				} else {
-					_, err := account.Create(authData.User.ID)
-					if err != nil {
-						fmt.Println("Failed to create account:", err)
-					}
-				}
+		// лениво создаём аккаунт синхронно, до передачи управления хендлеру
+		if err := accountUC.EnsureExists(c.Request.Context(), authData.User.ID); err != nil {
+			log.Printf("auth: не удалось создать/проверить аккаунт %d: %v", authData.User.ID, err)
+		}
 
-			}
-		}(authData)
 		c.Next()
 	}
 }

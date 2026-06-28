@@ -51,8 +51,14 @@ func (r *accountRepo) GetAccountByID(id int64) (*domain.Account, error) {
 }
 
 func (r *accountRepo) DeleteAccount(id int64) error {
-	//TODO implement me
-	panic("implement me")
+	result := r.db.Delete(&accountModel{}, id)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return domain.ErrAccountNotFound
+	}
+	return nil
 }
 
 // NewAccountRepository создает новый репозиторий для работы с аккаунтами
