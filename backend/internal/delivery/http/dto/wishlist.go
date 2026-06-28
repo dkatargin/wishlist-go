@@ -39,6 +39,7 @@ type WishlistDetailResponse struct {
 }
 
 // SharedWishItem — публично-безопасное представление желания (без OwnerID).
+// Поля резервов заполняются для гостевого вида; владелец их не видит (см. правила доступа).
 type SharedWishItem struct {
 	ID               int64    `json:"id"`
 	Name             *string  `json:"name"`
@@ -48,6 +49,10 @@ type SharedWishItem struct {
 	MarketPrice      *float64 `json:"market_price"`
 	MarketCurrency   string   `json:"market_currency"`
 	MarketQuantity   *int     `json:"market_quantity"`
+
+	ReservedQuantity int     `json:"reserved_quantity"`
+	Remaining        *int    `json:"remaining,omitempty"`
+	Reservers        []int64 `json:"reservers"`
 }
 
 // SharedWishlistResponse — гостевой просмотр шаренного списка (без OwnerID).

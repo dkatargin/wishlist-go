@@ -40,7 +40,7 @@ func newTestDB(t *testing.T) *gorm.DB {
 		t.Fatalf("строка подключения: %v", err)
 	}
 
-	db, err := gorm.Open(gormpg.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(gormpg.Open(dsn), &gorm.Config{TranslateError: true})
 	if err != nil {
 		t.Fatalf("gorm.Open: %v", err)
 	}

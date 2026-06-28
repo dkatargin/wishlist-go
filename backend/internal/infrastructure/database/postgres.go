@@ -25,7 +25,9 @@ func PostgresDSN(host string, port int, user string, password string, dbname str
 func ConnectDB(cfg *config.DB) *gorm.DB {
 
 	masterDSN := PostgresDSN(cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.Name)
-	dbConnect, err := gorm.Open(postgres.Open(masterDSN), &gorm.Config{})
+	// TranslateError: GORM приводит ошибки драйвера к доменным (ErrDuplicatedKey,
+	// ErrForeignKeyViolated), чтобы репозитории не парсили SQLSTATE руками.
+	dbConnect, err := gorm.Open(postgres.Open(masterDSN), &gorm.Config{TranslateError: true})
 	if err != nil {
 		log.Fatal(err)
 	}

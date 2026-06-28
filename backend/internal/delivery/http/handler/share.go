@@ -5,7 +5,9 @@ import (
 	"net/http"
 	"strconv"
 	"wishlist-go/internal/delivery/http/dto"
+	"wishlist-go/internal/delivery/http/middleware"
 	"wishlist-go/internal/domain"
+	"wishlist-go/internal/usecase/reservation"
 	"wishlist-go/internal/usecase/wishitem"
 	"wishlist-go/internal/usecase/wishlist"
 
@@ -13,14 +15,48 @@ import (
 	"github.com/google/uuid"
 )
 
-// ShareHandler — публичный (без Telegram-auth) гостевой просмотр шаренного списка.
+// ShareHandler — гостевой просмотр шаренного списка под OptionalTelegramAuth:
+// пускает и анонима, но различает владельца / гостя / анонима для правил видимости резервов.
 type ShareHandler struct {
-	wishlistUC *wishlist.Service
-	wishitemUC *wishitem.Service
+	wishlistUC    *wishlist.Service
+	wishitemUC    *wishitem.Service
+	reservationUC *reservation.Service
 }
 
-func NewShareHandler(wlUC *wishlist.Service, wiUC *wishitem.Service) *ShareHandler {
-	return &ShareHandler{wishlistUC: wlUC, wishitemUC: wiUC}
+func NewShareHandler(wlUC *wishlist.Service, wiUC *wishitem.Service, resUC *reservation.Service) *ShareHandler {
+	return &ShareHandler{wishlistUC: wlUC, wishitemUC: wiUC, reservationUC: resUC}
+}
+
+// remainingQuantity — сколько ещё можно зарезервировать.
+// nil, если market_quantity не задан (0 трактуем как «не указано» — лимита нет);
+// перебронь не уходит в минус.
+func remainingQuantity(marketQuantity *int, reserved int) *int {
+	if marketQuantity == nil || *marketQuantity <= 0 {
+		return nil
+	}
+	rem := *marketQuantity - reserved
+	if rem < 0 {
+		rem = 0
+	}
+	return &rem
+}
+
+// applyReservationView заполняет поля резерва согласно правам смотрящего:
+//   - владелец списка не видит резервы вообще (сюрприз сохраняется);
+//   - аноним/неаутентифицированный видит только агрегат количества, без состава дарителей;
+//   - аутентифицированный гость дополнительно видит не-анонимных дарителей.
+//
+// Reservers всегда не-nil (пустой срез, а не null).
+func applyReservationView(si *dto.SharedWishItem, isOwner, isAuthenticated bool, agg reservation.WishReservationView) {
+	si.Reservers = []int64{}
+	if isOwner {
+		return
+	}
+	si.ReservedQuantity = agg.ReservedQuantity
+	si.Remaining = remainingQuantity(si.MarketQuantity, agg.ReservedQuantity)
+	if isAuthenticated && len(agg.Reservers) > 0 {
+		si.Reservers = agg.Reservers
+	}
 }
 
 // Get отдаёт список (публичные поля) и его невыполненные желания по share-коду.
@@ -58,6 +94,24 @@ func (h *ShareHandler) Get(c *gin.Context) {
 		return
 	}
 
+	// Кто смотрит (OptionalTelegramAuth кладёт telegram_auth только при валидной подписи).
+	var requesterID int64
+	if auth, ok := c.Get("telegram_auth"); ok {
+		requesterID = auth.(*middleware.TelegramAuthData).User.ID
+	}
+	isOwner := requesterID == wl.OwnerID
+	isAuthenticated := requesterID != 0
+
+	// Владельцу резервы не показываем вообще — и не дёргаем агрегат лишний раз.
+	var reservations map[int64]reservation.WishReservationView
+	if !isOwner {
+		reservations, err = h.reservationUC.AggregateForSharedList(c.Request.Context(), shareCode)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch reservations"})
+			return
+		}
+	}
+
 	resp := dto.SharedWishlistResponse{
 		ShareCode:   wl.ShareCode,
 		Name:        wl.Name,
@@ -66,7 +120,7 @@ func (h *ShareHandler) Get(c *gin.Context) {
 		Items:       make([]dto.SharedWishItem, 0, len(items)),
 	}
 	for _, it := range items {
-		resp.Items = append(resp.Items, dto.SharedWishItem{
+		si := dto.SharedWishItem{
 			ID:               it.ID,
 			Name:             it.Name,
 			Priority:         it.Priority,
@@ -75,7 +129,9 @@ func (h *ShareHandler) Get(c *gin.Context) {
 			MarketPrice:      it.MarketPrice,
 			MarketCurrency:   it.MarketCurrency,
 			MarketQuantity:   it.MarketQuantity,
-		})
+		}
+		applyReservationView(&si, isOwner, isAuthenticated, reservations[it.ID])
+		resp.Items = append(resp.Items, si)
 	}
 
 	c.JSON(http.StatusOK, resp)

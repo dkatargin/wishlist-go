@@ -9,6 +9,7 @@ import (
 	"wishlist-go/internal/infrastructure/queue"
 	"wishlist-go/internal/repository/postgres"
 	"wishlist-go/internal/usecase/account"
+	"wishlist-go/internal/usecase/reservation"
 	"wishlist-go/internal/usecase/wishitem"
 	"wishlist-go/internal/usecase/wishlist"
 
@@ -29,11 +30,13 @@ func NewAPIApp(cfg *config.AppConfigStruct) *APIApp {
 	accountRepo := postgres.NewAccountRepository(db)
 	wishlistRepo := postgres.NewWishlistRepository(db)
 	wishitemRepo := postgres.NewWishItemRepository(db)
+	reservationRepo := postgres.NewReservationRepository(db)
 
 	// Use cases
 	accountUC := account.NewService(accountRepo)
 	wishlistUC := wishlist.NewService(wishlistRepo)
 	wishitemUC := wishitem.NewService(wishitemRepo, wishlistRepo, mqClient)
+	reservationUC := reservation.NewService(reservationRepo, wishitemRepo)
 
 	// HTTP router
 	router := gin.Default()
@@ -44,14 +47,16 @@ func NewAPIApp(cfg *config.AppConfigStruct) *APIApp {
 	accountHandler := handler.NewAccountHandler(accountUC)
 	wishlistHandler := handler.NewWishlistHandler(wishlistUC)
 	wishitemHandler := handler.NewWishItemHandler(wishitemUC, wishlistUC)
-	shareHandler := handler.NewShareHandler(wishlistUC, wishitemUC)
+	shareHandler := handler.NewShareHandler(wishlistUC, wishitemUC, reservationUC)
+	reservationHandler := handler.NewReservationHandler(reservationUC)
 	// Routes
 	api := router.Group("/api/v1")
 	{
 		api.OPTIONS("*path", handler.OptionsHandler)
 		api.GET("health", handler.HealthCheck)
-		// Публичный гостевой просмотр шаренного списка (без auth)
-		api.GET("share/:shareCode", shareHandler.Get)
+		// Гостевой просмотр шаренного списка: опциональная auth — пускаем и анонима,
+		// но различаем владельца/гостя для правил видимости резервов.
+		api.GET("share/:shareCode", middleware.OptionalTelegramAuth(cfg.Telegram.BotToken), shareHandler.Get)
 		// Authorized routes
 		authorized := api.Group("")
 		authorized.Use(middleware.TelegramAuthMiddleware(cfg.Telegram.BotToken, accountUC))
@@ -67,6 +72,12 @@ func NewAPIApp(cfg *config.AppConfigStruct) *APIApp {
 			authorized.GET("list/:listId/wishes/:wishId", wishitemHandler.Get)
 			authorized.PATCH("list/:listId/wishes/:wishId", wishitemHandler.Update)
 			authorized.DELETE("list/:listId/wishes/:wishId", wishitemHandler.Delete)
+
+			// Резервирование подарков (даритель — залогиненный гость)
+			authorized.POST("share/:shareCode/wishes/:wishId/reserve", reservationHandler.Reserve)
+			authorized.DELETE("share/:shareCode/wishes/:wishId/reserve", reservationHandler.Cancel)
+			authorized.POST("reservations/:reservationId/purchased", reservationHandler.MarkPurchased)
+			authorized.GET("reservations", reservationHandler.ListMine)
 
 			authorized.DELETE("account", accountHandler.Delete)
 		}
