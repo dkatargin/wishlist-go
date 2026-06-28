@@ -15,7 +15,7 @@ type wishItemModel struct {
 	OwnerID        int64     `gorm:"index;not null" json:"owner_id"`
 	Name           string    `gorm:"not null" json:"name"`
 	Priority       int       `gorm:"not null" json:"priority"`
-	Status         string    `gorm:"not null" json:"status"` // возможные значения: "pending", "reserved", "purchased"
+	IsDone         bool      `gorm:"not null;default:false" json:"is_done"`
 	MarketLink     string    `gorm:"not null" json:"market_link"`
 	MarketPicture  string    `gorm:"not null" json:"market_picture"`
 	MarketPrice    float64   `gorm:"not null" json:"market_price"`
@@ -74,7 +74,7 @@ func (r *wishItemRepo) GetWishItemsByWishlistID(wishlistCode uuid.UUID, limit in
 	var models []wishItemModel
 
 	err := r.db.Where("wish_list_code = ?", wishlistCode.String()).
-		Order("created_at DESC").
+		Order("priority DESC, created_at DESC").
 		Limit(limit).
 		Offset(offset).
 		Find(&models).Error
@@ -91,12 +91,40 @@ func (r *wishItemRepo) GetWishItemsByWishlistID(wishlistCode uuid.UUID, limit in
 }
 
 // UpdateWishItem обновляет элемент вишлиста
-func (r *wishItemRepo) UpdateWishItem(wishItem *domain.WishItem) error {
-	model := domainWishItemToModel(wishItem)
+func (r *wishItemRepo) UpdateWishItem(id int64, shareCode uuid.UUID, upd domain.WishItemUpdate) error {
+	// Перевод доменного partial → колонки БД живёт ТОЛЬКО здесь.
+	updates := map[string]any{}
+	if upd.Name != nil {
+		updates["name"] = *upd.Name
+	}
+	if upd.Priority != nil {
+		updates["priority"] = *upd.Priority
+	}
+	if upd.IsDone != nil {
+		updates["is_done"] = *upd.IsDone
+	}
+	if upd.MarketURL != nil {
+		updates["market_link"] = *upd.MarketURL
+	}
+	if upd.MarketPictureURL != nil {
+		updates["market_picture"] = *upd.MarketPictureURL
+	}
+	if upd.MarketPrice != nil {
+		updates["market_price"] = *upd.MarketPrice
+	}
+	if upd.MarketCurrency != nil {
+		updates["market_currency"] = *upd.MarketCurrency
+	}
+	if upd.MarketQuantity != nil {
+		updates["market_quantity"] = *upd.MarketQuantity
+	}
+	if len(updates) == 0 {
+		return nil
+	}
 
 	result := r.db.Model(&wishItemModel{}).
-		Where("id = ?", wishItem.ID).
-		Updates(model)
+		Where("id = ? AND wish_list_code = ?", id, shareCode.String()).
+		Updates(updates)
 
 	if result.Error != nil {
 		return result.Error
@@ -126,27 +154,50 @@ func (r *wishItemRepo) DeleteWishItem(id int64) error {
 
 // domainWishItemToModel конвертирует domain модель в GORM модель
 func domainWishItemToModel(item *domain.WishItem) *wishItemModel {
-	return &wishItemModel{
-		ID:            item.ID,
-		WishListCode:  item.WishListCode,
-		Name:          *item.Name,
-		MarketLink:    item.MarketURL,
-		MarketPicture: *item.MarketPictureURL,
-		MarketPrice:   *item.MarketPrice,
-		CreatedAt:     item.CreatedAt,
-		UpdatedAt:     item.UpdatedAt,
+	m := &wishItemModel{
+		ID:             item.ID,
+		WishListCode:   item.WishListCode,
+		OwnerID:        item.OwnerID,
+		Priority:       item.Priority,
+		IsDone:         item.IsDone,
+		MarketLink:     item.MarketURL,
+		MarketCurrency: item.MarketCurrency,
+		CreatedAt:      item.CreatedAt,
+		UpdatedAt:      item.UpdatedAt,
 	}
+	if item.Name != nil {
+		m.Name = *item.Name
+	}
+	if item.MarketPictureURL != nil {
+		m.MarketPicture = *item.MarketPictureURL
+	}
+	if item.MarketPrice != nil {
+		m.MarketPrice = *item.MarketPrice
+	}
+	if item.MarketQuantity != nil {
+		m.MarketQuantity = *item.MarketQuantity
+	}
+	return m
 }
 
 // modelToDomainWishItem конвертирует GORM модель в domain модель
 func modelToDomainWishItem(model *wishItemModel) *domain.WishItem {
+	name := model.Name
+	pic := model.MarketPicture
+	price := model.MarketPrice
+	qty := model.MarketQuantity
 	return &domain.WishItem{
 		ID:               model.ID,
 		WishListCode:     model.WishListCode,
-		Name:             &model.Name,
+		OwnerID:          model.OwnerID,
+		Name:             &name,
+		Priority:         model.Priority,
+		IsDone:           model.IsDone,
 		MarketURL:        model.MarketLink,
-		MarketPictureURL: &model.MarketPicture,
-		MarketPrice:      &model.MarketPrice,
+		MarketPictureURL: &pic,
+		MarketPrice:      &price,
+		MarketCurrency:   model.MarketCurrency,
+		MarketQuantity:   &qty,
 		CreatedAt:        model.CreatedAt,
 		UpdatedAt:        model.UpdatedAt,
 	}

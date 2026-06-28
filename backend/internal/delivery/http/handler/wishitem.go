@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"wishlist-go/internal/delivery/http/dto"
@@ -52,8 +53,18 @@ func (h *WishItemHandler) Create(c *gin.Context) {
 		return
 	}
 
-	wi, err := h.usecase.CreateWishItem(c.Request.Context(), shareCode,
-		req.MarketLink, &req.Name, &req.MarketPicture, &req.MarketPrice)
+	item := &domain.WishItem{
+		WishListCode:     shareCode,
+		OwnerID:          userID,
+		Name:             &req.Name,
+		Priority:         req.Priority,
+		MarketURL:        req.MarketLink,
+		MarketPictureURL: &req.MarketPicture,
+		MarketPrice:      &req.MarketPrice,
+		MarketCurrency:   req.MarketCurrency,
+		MarketQuantity:   &req.MarketQuantity,
+	}
+	wi, err := h.usecase.CreateWishItem(c.Request.Context(), item)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error creating wish item"})
 		return
@@ -93,6 +104,10 @@ func (h *WishItemHandler) Get(c *gin.Context) {
 
 	wi, err := h.usecase.GetWishItemByID(c.Request.Context(), wishId, shareCode)
 	if err != nil {
+		if errors.Is(err, domain.ErrWishItemNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "wish item not found"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error fetching wish item"})
 		return
 	}
@@ -177,15 +192,21 @@ func (h *WishItemHandler) Update(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	err = h.usecase.UpdateWishItem(c.Request.Context(), &domain.WishItem{
-		ID:               wishId,
+	upd := domain.WishItemUpdate{
 		Name:             req.Name,
-		WishListCode:     shareCode,
-		MarketURL:        *req.MarketLink,
+		Priority:         req.Priority,
+		IsDone:           req.IsDone,
+		MarketURL:        req.MarketLink,
 		MarketPictureURL: req.MarketPicture,
 		MarketPrice:      req.MarketPrice,
-	})
-	if err != nil {
+		MarketCurrency:   req.MarketCurrency,
+		MarketQuantity:   req.MarketQuantity,
+	}
+	if err := h.usecase.UpdateWishItem(c.Request.Context(), wishId, shareCode, upd); err != nil {
+		if errors.Is(err, domain.ErrWishItemNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "wish item not found"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error updating wish item"})
 		return
 	}
@@ -224,6 +245,10 @@ func (h *WishItemHandler) Delete(c *gin.Context) {
 
 	err = h.usecase.DeleteWishItem(c.Request.Context(), wishId)
 	if err != nil {
+		if errors.Is(err, domain.ErrWishItemNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "wish item not found"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "error deleting wish item"})
 		return
 	}

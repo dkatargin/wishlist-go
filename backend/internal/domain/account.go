@@ -6,7 +6,7 @@ import (
 )
 
 type Account struct {
-	ID               int64     `json:"id"`
+	ID               int64     `json:"id"`                // PK; для telegram-аккаунтов = Telegram user id (отдельного telegram_id нет)
 	RegistrationType string    `json:"registration_type"` // e.g., "telegram", "web"
 	IsActive         bool      `json:"is_active"`
 	CreatedAt        time.Time `json:"created_at"`

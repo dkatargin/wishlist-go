@@ -11,7 +11,7 @@ import (
 type Service struct {
 	repo         domain.WishItemRepository
 	wishlistRepo domain.WishlistRepository
-	mqClient     *queue.RabbitMQClient
+	mqClient     *queue.RabbitMQClient // P1.5: продьюсер crawl_product для POST .../wishes/crawl
 }
 
 func NewService(repo domain.WishItemRepository, wishlistRepo domain.WishlistRepository, mqClient *queue.RabbitMQClient) *Service {
@@ -30,31 +30,18 @@ func (s *Service) GetWishItemByID(ctx context.Context, id int64, wlCode uuid.UUI
 	return s.repo.GetWishItemByID(id, wlCode)
 }
 
-func (s *Service) CreateWishItem(ctx context.Context, wlCode uuid.UUID, marketURL string, name *string, marketPictureURL *string, marketPrice *float64) (*domain.WishItem, error) {
-
-	if name == nil {
-		//	TODO: отправляем в очередь на парсинг
-		return nil, nil
+func (s *Service) CreateWishItem(ctx context.Context, item *domain.WishItem) (*domain.WishItem, error) {
+	if item.MarketCurrency == "" {
+		item.MarketCurrency = "RUB"
 	}
-
-	wi := &domain.WishItem{
-		WishListCode:     wlCode,
-		MarketURL:        marketURL,
-		Name:             name,
-		MarketPictureURL: marketPictureURL,
-		MarketPrice:      marketPrice,
-	}
-	if err := s.repo.CreateWishItem(wi); err != nil {
+	if err := s.repo.CreateWishItem(item); err != nil {
 		return nil, err
 	}
-	return wi, nil
+	return item, nil
 }
 
-func (s *Service) UpdateWishItem(ctx context.Context, wishItem *domain.WishItem) error {
-	if err := s.repo.UpdateWishItem(wishItem); err != nil {
-		return err
-	}
-	return nil
+func (s *Service) UpdateWishItem(ctx context.Context, id int64, shareCode uuid.UUID, upd domain.WishItemUpdate) error {
+	return s.repo.UpdateWishItem(id, shareCode, upd)
 }
 
 func (s *Service) DeleteWishItem(ctx context.Context, id int64) error {
