@@ -1,17 +1,13 @@
 package main
 
 import (
-	"flag"
 	"log"
 	"wishlist-go/internal/app"
 	"wishlist-go/internal/infrastructure/config"
 )
 
 func main() {
-	cfgPath := flag.String("config", "configs/config.yaml", "config path")
-	flag.Parse()
-
-	cfg, err := config.LoadConfigFile(*cfgPath)
+	cfg, err := config.Load()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -20,5 +16,4 @@ func main() {
 	if err := apiApp.Run(); err != nil {
 		log.Fatal(err)
 	}
-
 }

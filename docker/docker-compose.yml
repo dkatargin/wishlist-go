@@ -1,13 +1,9 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
     container_name: wishlist-postgres
-    environment:
-      POSTGRES_DB: wishlist
-      POSTGRES_USER: wishlist_user
-      POSTGRES_PASSWORD: securepassword
+    env_file:
+      - .env.prod
     ports:
       - "5432:5432"
     volumes:
@@ -30,8 +26,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    environment:
-      - GIN_MODE=release
+    env_file:
+      - .env.prod
     networks:
       - wishlist-network
     restart: unless-stopped
@@ -53,6 +49,10 @@ services:
     networks:
       - wishlist-network
     restart: unless-stopped
+
+# NOTE: prod-стек ещё неполон — нет сервисов worker/rabbitmq, отсутствует backend/Dockerfile
+# (есть только Dockerfile.develop), у frontend несогласован build-context. Это отдельная
+# deployment-задача. Здесь приведена к единому env-механизму связка postgres+backend (env_file: .env.prod).
 
 volumes:
   postgres_data:

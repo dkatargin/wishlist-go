@@ -2,23 +2,16 @@ package config
 
 import (
 	"fmt"
-	"os"
 
-	"gopkg.in/yaml.v3"
+	"github.com/caarlos0/env/v11"
 )
 
-func LoadConfigFile(configPath string) (*AppConfigStruct, error) {
-	var config *AppConfigStruct
-	var loadErr error
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		loadErr = fmt.Errorf("failed to read config file: %w", err)
-		return nil, loadErr
+// Load читает конфигурацию из переменных окружения (12-factor).
+// Отсутствие required-переменной (пароли, bot token) — ошибка на старте.
+func Load() (*AppConfigStruct, error) {
+	cfg := &AppConfigStruct{}
+	if err := env.Parse(cfg); err != nil {
+		return nil, fmt.Errorf("failed to load config from env: %w", err)
 	}
-	if err := yaml.Unmarshal(data, &config); err != nil {
-		loadErr = fmt.Errorf("failed to unmarshal config: %w", err)
-		return nil, loadErr
-	}
-	return config, loadErr
-
+	return cfg, nil
 }

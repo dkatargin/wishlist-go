@@ -2,8 +2,8 @@
 export COMPOSE_PROJECT_NAME=wishlist
 # Переменные
 DOCKER_COMPOSE := docker compose
-DEV_COMPOSE := $(DOCKER_COMPOSE) -f docker/docker-compose.dev.yml
-PROD_COMPOSE := $(DOCKER_COMPOSE) -f docker/docker-compose.yml
+DEV_COMPOSE := $(DOCKER_COMPOSE) --env-file docker/.env.dev -f docker/docker-compose.dev.yml
+PROD_COMPOSE := $(DOCKER_COMPOSE) --env-file docker/.env.prod -f docker/docker-compose.yml
 
 # Цвета для красивого вывода
 GREEN := \033[0;32m

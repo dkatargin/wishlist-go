@@ -1,13 +1,11 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
     container_name: wishlist-postgres-develop
     env_file:
-      - .env.debug
+      - .env.dev
     ports:
-      - "${POSTGRES_PORT:-5433}:5432"
+      - "${POSTGRES_PUBLISH_PORT:-5433}:5432"
     volumes:
       - postgres_data_develop:/var/lib/postgresql/data
       - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -25,8 +23,11 @@ services:
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     container_name: wishlist-rabbitmq-develop
-    env_file:
-      - .env.debug
+    # Образ rabbitmq читает RABBITMQ_DEFAULT_*, поэтому мапим из общих RABBITMQ_* (интерполяция из --env-file).
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-wishlist_user}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD must be set}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-wishlist}
     ports:
       - "${RABBITMQ_PORT:-5672}:5672"
       - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
@@ -46,7 +47,7 @@ services:
   api:
     build:
       context: ../backend
-      dockerfile: ../backend/Dockerfile.develop
+      dockerfile: Dockerfile.develop
       args:
         - GO_VERSION=${GO_VERSION:-1.25}
         - BUILDKIT_INLINE_CACHE=1
@@ -60,11 +61,10 @@ services:
       rabbitmq:
         condition: service_healthy
     env_file:
-      - .env.debug
+      - .env.dev
     volumes:
       - ../backend:/app
-      - ../docker/etc/config.develop.yaml:/app/config.yaml:ro
-      - ../backend/server/.air.toml:/app/.air.toml:ro
+      - ../backend/.air.toml:/app/.air.toml:ro
       - go-cache:/go/pkg/mod  # Кэш Go модулей
     networks:
       - wishlist-network-develop
@@ -76,7 +76,7 @@ services:
   worker:
     build:
       context: ../backend
-      dockerfile: worker/Dockerfile.develop
+      dockerfile: Dockerfile.develop
       args:
         - GO_VERSION=${GO_VERSION:-1.25}
     container_name: wishlist-worker-develop
@@ -84,11 +84,10 @@ services:
       rabbitmq:
         condition: service_healthy
     env_file:
-      - .env.debug
+      - .env.dev
     volumes:
       - ../backend:/app
-      - ../docker/etc/config.develop.yaml:/app/config.yaml:ro
-      - ../backend/worker/.air.toml:/app/.air.toml:ro
+      - ../backend/.air.worker.toml:/app/.air.toml:ro
       - worker-go-cache:/go/pkg/mod
     networks:
       - wishlist-network-develop
@@ -110,15 +109,13 @@ services:
       - frontend-node-modules:/app/node_modules
     working_dir: /app
     env_file:
-      - .env.debug
+      - .env.dev
     networks:
       - wishlist-network-develop
     command: sh -c "bun install && bun run dev --host 0.0.0.0 --port 3002"
     labels:
       - "wishlist.environment=develop"
     restart: unless-stopped
-
-
 
 volumes:
   postgres_data_develop:
@@ -136,4 +133,3 @@ networks:
   wishlist-network-develop:
     name: wishlist-network-develop
     driver: bridge
-
