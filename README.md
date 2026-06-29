@@ -1,257 +1,288 @@
 # Wishlist App
 
-Приложение для создания и управления списками желаний с интеграцией Telegram.
+Приложение для создания и управления списками желаний с интеграцией Telegram
+(авторизация + Mini App). Позиции можно добавлять вручную или **ссылкой на товар** —
+фоновый воркер сам распарсит название, картинку и цену с Яндекс.Маркета, Ozon и
+Wildberries.
+
+## Возможности
+
+- **Списки желаний** и позиции в них.
+- **Парсинг товаров по ссылке** — Яндекс.Маркет, Ozon, Wildberries (асинхронно, через воркер).
+- **Резервирование подарков** — гость может «забронировать» позицию; владелец списка брони не видит.
+- **Избранное** — сохранённые чужие списки.
+- **Telegram-авторизация** (Mini App `initData`) + публичный гостевой просмотр шаренного списка.
 
 ## Технологический стек
 
-- **Backend**: Go 1.25, Gin Framework
-- **Frontend**: React 19, Vite, Material-UI
+- **Backend**: Go 1.25, Gin, GORM
+- **Frontend**: React 19, Vite, Material-UI (пакетный менеджер — Bun)
 - **База данных**: PostgreSQL 16
-- **Message Queue**: RabbitMQ 3.13
-- **Worker**: Go 1.25 (для обработки фоновых задач)
+- **Очередь**: RabbitMQ 3.13
+- **Воркер**: Go (фоновый парсинг товаров)
 - **Контейнеризация**: Docker, Docker Compose
 
-## Структура проекта
+## Архитектура
+
+Один Go-модуль `wishlist-go` в каталоге `backend/`, организованный по Clean / Hexagonal
+архитектуре: зависимости направлены внутрь, к `domain`; ничто в `domain` не импортирует фреймворк.
 
 ```
 wishlist-go/
-├── backend/          # Go backend сервер
-├── worker/           # Go worker для обработки фоновых задач
-├── frontend/         # React frontend приложение
-├── docker/           # Docker конфигурации
-├── config.yaml       # Конфигурация для локальной разработки
-└── config.docker.yaml # Конфигурация для Docker
+├── backend/                      # Go, модуль `wishlist-go`
+│   ├── cmd/api/                  # точка входа API     → app.NewAPIApp
+│   ├── cmd/worker/               # точка входа воркера → app.NewWorkerApp
+│   └── internal/
+│       ├── app/                  # DI-сборка (infra → repo → usecase → handlers → routes)
+│       ├── domain/               # сущности + интерфейсы репозиториев (порты)
+│       ├── usecase/              # бизнес-логика (по агрегату на пакет)
+│       ├── repository/postgres/  # GORM-реализации интерфейсов domain
+│       ├── delivery/http/        # Gin: handlers, middleware, dto
+│       ├── delivery/worker/      # RabbitMQ consumer
+│       └── infrastructure/       # config, database, queue, crawler
+├── frontend/                     # React 19 + Vite (Bun)
+├── docker/                       # docker-compose.{dev,}.yml + .env.{dev,prod}
+└── docs/                         # архитектура и планы
 ```
 
-## Быстрый старт с Docker
+Подробнее об архитектуре — в `docs/superpowers/ARCHITECTURE.md`, гайд для разработки — в `CLAUDE.md`.
 
-### Предварительные требования
+## Быстрый старт (Docker, режим разработки)
 
-- Docker >= 20.10
-- Docker Compose >= 2.0
+### Требования
 
-### Запуск приложения
+- Docker >= 20.10, Docker Compose >= 2.0
+- GNU Make
 
-1. Клонируйте репозиторий:
-```bash
-git clone <repository-url>
-cd wishlist-go
-```
+### Конфигурация
 
-2. Настройте переменные окружения (опционально):
-Отредактируйте `config.docker.yaml` и укажите ваши значения для:
-- `telegram.bot_token` - токен Telegram бота
-- `sentry.dsn` - DSN для Sentry (если используете)
+Конфиг **только через переменные окружения** (12-factor) — никаких YAML-файлов.
+Docker Compose читает значения из `docker/.env.dev` (для dev) и `docker/.env.prod` (для prod).
+Эти файлы в `.gitignore` — создайте их и задайте как минимум обязательные переменные
+(`POSTGRES_PASSWORD`, `RABBITMQ_PASSWORD`, `TELEGRAM_BOT_TOKEN`). Полный список — в разделе
+[Переменные окружения](#переменные-окружения).
 
-3. Запустите все сервисы:
-```bash
-docker-compose up -d
-```
-
-4. Проверьте статус:
-```bash
-docker-compose ps
-```
-
-### Доступ к приложению
-
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:8080
-- **PostgreSQL**: localhost:5432
-- **RabbitMQ Management UI**: http://localhost:15672 (по умолчанию: wishlist_user / rabbitpassword)
-- **RabbitMQ**: localhost:5672
-
-### Остановка приложения
+### Запуск
 
 ```bash
-docker-compose down
+make dev      # сборка + запуск dev-стека с hot-reload (Air) и Delve-дебаггером
+make dev-d    # то же, но в фоне (detached)
 ```
 
-Для удаления данных БД:
+### Доступ к сервисам (dev)
+
+- **Frontend** (Vite): http://localhost:3002
+- **Backend API**: http://localhost:8081 (внутри контейнера — `:8080`)
+- **Delve** (отладчик Go): `localhost:2345`
+- **PostgreSQL**: `localhost:5433`
+- **RabbitMQ**: `localhost:5672`
+- **RabbitMQ Management UI**: http://localhost:15672 (логин/пароль — из `docker/.env.dev`)
+
+### Остановка и очистка
+
 ```bash
-docker-compose down -v
+make down            # остановить dev- и prod-стеки
+make clean           # + удалить контейнеры/сети (--remove-orphans)
+make clean-volumes   # + удалить тома (СОТРЁТ данные БД; спросит подтверждение)
+make logs SERVICE=backend   # логи сервиса (по умолчанию — всех)
+make db-shell        # psql в dev-базу
 ```
 
-## Разработка без Docker
+## Локальная разработка (без Docker)
 
 ### Backend
 
-1. Установите Go 1.25+
-2. Установите PostgreSQL
-3. Настройте `config.yaml`
-4. Запустите сервер:
 ```bash
 cd backend
 go mod download
-go run server.go
+
+# конфиг через env: создайте gitignored .env.local с POSTGRES_HOST=localhost
+# и опубликованными dev-портами (POSTGRES_PORT=5433, RABBITMQ_PORT=5672)
+set -a && . ../.env.local && set +a
+
+go run ./cmd/api       # API-сервер
+go run ./cmd/worker    # воркер (в отдельном терминале)
 ```
 
 ### Frontend
 
-1. Установите Bun или Node.js
-2. Установите зависимости:
 ```bash
 cd frontend
-bun install  # или npm install
-```
-3. Запустите dev-сервер:
-```bash
-bun run dev  # или npm run dev
-```
-
-## Сборка для продакшена
-
-### Backend отдельно
-```bash
-docker build -f Dockerfile.backend -t wishlist-backend .
-```
-
-### Frontend отдельно
-```bash
-docker build -f Dockerfile.frontend -t wishlist-frontend \
-  --build-arg VITE_BACKEND_HOST=your-api-host \
-  --build-arg VITE_BACKEND_PORT=443 \
-  --build-arg VITE_BACKEND_SCHEME=https \
-  .
+bun install
+bun run dev            # Vite dev-сервер
 ```
 
 ## Переменные окружения
 
-### Backend (config.yaml)
-- `server.host` - хост сервера (по умолчанию: 0.0.0.0 в Docker)
-- `server.port` - порт сервера (по умолчанию: 8080)
-- `database.*` - параметры подключения к PostgreSQL
-- `rabbitmq.host` - хост RabbitMQ (по умолчанию: wishlist-rabbitmq-develop в Docker)
-- `rabbitmq.port` - порт RabbitMQ (по умолчанию: 5672)
-- `rabbitmq.user` - пользователь RabbitMQ
-- `rabbitmq.password` - пароль RabbitMQ
-- `rabbitmq.vhost` - virtual host RabbitMQ
-- `telegram.bot_token` - токен Telegram бота
-- `sentry.dsn` - DSN для мониторинга ошибок
+`config.Load()` (`backend/internal/infrastructure/config`) заполняет конфиг из env по
+тегам `env:`. Обязательные переменные при отсутствии валят старт (fail-fast).
 
-### Frontend (build args)
-- `VITE_BACKEND_HOST` - хост backend API
-- `VITE_BACKEND_PORT` - порт backend API
-- `VITE_BACKEND_SCHEME` - протокол (http/https)
-- `APP_VERSION` - версия приложения
+| Переменная | Секция | По умолчанию | Обязательна |
+|---|---|---|:---:|
+| `SERVER_HOST` | server | `0.0.0.0` | |
+| `SERVER_PORT` | server | `8080` | |
+| `WORKER_HOST` | worker | `0.0.0.0` | |
+| `WORKER_PORT` | worker | `8090` | |
+| `POSTGRES_HOST` | database | `localhost` | |
+| `POSTGRES_PORT` | database | `5432` | |
+| `POSTGRES_USER` | database | `wishlist` | |
+| `POSTGRES_PASSWORD` | database | — | ✅ |
+| `POSTGRES_DB` | database | `wishlist` | |
+| `TELEGRAM_BOT_TOKEN` | telegram | — | ✅ |
+| `RABBITMQ_HOST` | rabbitmq | `localhost` | |
+| `RABBITMQ_PORT` | rabbitmq | `5672` | |
+| `RABBITMQ_USER` | rabbitmq | `guest` | |
+| `RABBITMQ_PASSWORD` | rabbitmq | — | ✅ |
+| `RABBITMQ_VHOST` | rabbitmq | `/` | |
+| `SENTRY_DSN` | sentry | — | |
+| `SENTRY_ENVIRONMENT` | sentry | `production` | |
+| `SENTRY_RELEASE` | sentry | — | |
+| `LOG_LEVEL` | logging | `info` | |
+| `LOG_FILE` | logging | — | |
 
-## API Endpoints
+### Frontend (build-args, Vite)
 
-- `GET /api/health` - проверка здоровья сервиса
-- `POST /api/account/login` - авторизация
-- `GET /api/wishlists` - получить списки желаний
-- `POST /api/wishlists` - создать новый список
-- `GET /api/wishlists/:id` - получить конкретный список
-- `PUT /api/wishlists/:id` - обновить список
-- `DELETE /api/wishlists/:id` - удалить список
+| Переменная | По умолчанию |
+|---|---|
+| `VITE_BACKEND_HOST` | `wish.dimhost.ru` |
+| `VITE_BACKEND_PORT` | `443` |
+| `VITE_BACKEND_SCHEME` | `https` |
+| `VITE_DEPLOYMENT_TYPE` | `production` |
+| `VITE_AUTH_MOCKUP` | `` (пусто) |
 
-## RabbitMQ и Worker
+## Тесты, форматирование, линт
 
-Приложение использует RabbitMQ для асинхронной обработки событий. Backend выступает в роли producer (отправитель сообщений), а Worker - consumer (получатель и обработчик сообщений).
+```bash
+make test            # backend + frontend
+make test-backend    # cd backend && go test -v ./...
+make test-frontend   # cd frontend && bun test
+make fmt             # go fmt + bun run format
+make lint            # golangci-lint + bun run lint
+```
 
-### Архитектура
+## API
 
-1. **Backend** - отправляет сообщения в очередь при определенных событиях:
-   - Создание wishlist (`wishlist_created`)
-   - Создание wishitem (`wishitem_created`)
-   - Обновление account (`account_updated`)
+Базовый префикс — `/api/v1`.
 
-2. **Worker** - получает сообщения из очереди и обрабатывает их:
-   - Отправка уведомлений
-   - Обновление кэша
-   - Синхронизация данных
-   - Другая фоновая обработка
+**Авторизация**: Telegram Mini App. Клиент шлёт заголовок `Authorization: tma <initData>`;
+middleware валидирует HMAC `initData` (ключ выводится из токена бота), парсит пользователя
+и **лениво создаёт аккаунт**. Отдельного эндпоинта логина нет.
 
-### Формат сообщений
+### Публичные
+
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/api/v1/health` | проверка здоровья |
+| `GET` | `/api/v1/share/:shareCode` | гостевой просмотр шаренного списка (auth опциональна; владельцу/гостю показываются разные данные о бронях) |
+
+### Авторизованные
+
+**Списки**
+
+| Метод | Путь |
+|---|---|
+| `GET` | `/list` |
+| `POST` | `/list` |
+| `GET` | `/list/:listId` |
+| `PATCH` | `/list/:listId` |
+| `DELETE` | `/list/:listId` |
+
+**Позиции**
+
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/list/:listId/wishes` | |
+| `POST` | `/list/:listId/wishes` | создать вручную |
+| `POST` | `/list/:listId/wishes/crawl` | создать по ссылке на товар (парсинг) |
+| `GET` | `/list/:listId/wishes/:wishId` | |
+| `PATCH` | `/list/:listId/wishes/:wishId` | |
+| `DELETE` | `/list/:listId/wishes/:wishId` | |
+
+**Резервирование подарков**
+
+| Метод | Путь |
+|---|---|
+| `POST` | `/share/:shareCode/wishes/:wishId/reserve` |
+| `DELETE` | `/share/:shareCode/wishes/:wishId/reserve` |
+| `POST` | `/reservations/:reservationId/purchased` |
+| `GET` | `/reservations` |
+
+**Избранное** (`:id` = ShareCode списка)
+
+| Метод | Путь |
+|---|---|
+| `GET` | `/favorites` |
+| `POST` | `/wishlist/:id/favorite` |
+| `DELETE` | `/wishlist/:id/favorite` |
+
+**Аккаунт**
+
+| Метод | Путь |
+|---|---|
+| `DELETE` | `/account` |
+
+## Очередь и воркер
+
+Для асинхронной работы используется RabbitMQ. Backend — producer, воркер — consumer.
+
+Backend публикует JSON-сообщения в durable-очередь **`wishlist_tasks`**. Сейчас в системе
+один тип задачи — **`crawl_product`**: он отправляется при создании позиции по ссылке
+(`POST /list/:listId/wishes/crawl`), воркер забирает сообщение, дёргает краулер, парсит
+товар и сохраняет `WishItem`.
+
+Формат сообщения:
 
 ```json
 {
-  "type": "wishlist_created",
+  "type": "crawl_product",
   "payload": {
-    "wishlist_id": "uuid",
-    "owner_id": 123,
-    "name": "My Wishlist"
+    "product_url": "https://market.yandex.ru/card/...",
+    "wish_list_code": "<uuid>",
+    "owner_id": 123
   },
-  "timestamp": "2025-11-02T12:00:00Z"
+  "timestamp": "2026-06-29T12:00:00Z"
 }
 ```
 
-### Использование в коде
+## Краулер (парсинг товаров)
 
-Пример отправки сообщения из backend:
+Серверные адаптеры под каждый источник; диспетчер выбирает адаптер по хосту ссылки.
 
-```go
-import "wishlist-go/internal/queue"
+| Источник | Хосты | Извлекает |
+|---|---|---|
+| Яндекс.Маркет | `market.yandex.ru`, `yandex.ru` | название, цена, картинка, описание |
+| Ozon | `ozon.ru` | название, цена, картинка (через OpenGraph) |
+| Wildberries | `wildberries.ru` | название, картинка (**без цены** — анти-бот) |
 
-// Отправка сообщения в очередь
-if queue.Client != nil {
-    err := queue.Client.PublishMessage("wishlist_created", map[string]interface{}{
-        "wishlist_id": wishlist.ID,
-        "owner_id":    userID,
-        "name":        wishlist.Name,
-    })
-    if err != nil {
-        log.Printf("Failed to publish message: %v", err)
-    }
-}
-```
+## Сборка для продакшена
 
-Worker автоматически получает и обрабатывает эти сообщения.
+### Frontend
 
-### Мониторинг очереди
-
-RabbitMQ Management UI доступен по адресу http://localhost:15672
-- Логин: wishlist_user
-- Пароль: rabbitpassword
-
-В интерфейсе можно:
-- Просматривать очереди и их состояние
-- Мониторить количество сообщений
-- Отслеживать производительность
-- Управлять соединениями
-
-
-## Мониторинг и логи
-
-### Просмотр логов
 ```bash
-# Все сервисы
-docker-compose logs -f
-
-# Конкретный сервис
-docker-compose logs -f backend
-docker-compose logs -f worker
-docker-compose logs -f frontend
-docker-compose logs -f postgres
-docker-compose logs -f rabbitmq
+docker build -f frontend/Dockerfile -t wishlist-frontend \
+  --build-arg VITE_BACKEND_HOST=your-api-host \
+  --build-arg VITE_BACKEND_PORT=443 \
+  --build-arg VITE_BACKEND_SCHEME=https \
+  frontend/
 ```
 
-### Проверка здоровья
-```bash
-# Backend
-curl http://localhost:8080/api/health
+### Backend
 
-# Frontend
-curl http://localhost:3000/health
-```
+> **Внимание:** production-стек (`make prod`, `docker/docker-compose.yml`) пока неполный —
+> в нём нет сервиса RabbitMQ, и отсутствует production-Dockerfile для backend (есть только
+> `backend/Dockerfile.develop` для разработки). Основной поддерживаемый сценарий —
+> dev-стек (`make dev`).
 
 ## Troubleshooting
 
-### Backend не подключается к БД
-- Убедитесь, что PostgreSQL запущен и готов принимать соединения
-- Проверьте параметры подключения в `config.docker.yaml`
-- Проверьте логи: `docker-compose logs postgres`
-
-### Frontend не может подключиться к Backend
-- Проверьте, что backend запущен: `curl http://localhost:8080/api/health`
-- Убедитесь, что переменные окружения правильно настроены
-- Проверьте сетевые настройки Docker
-
-### Ошибки при сборке
-- Очистите Docker кэш: `docker-compose build --no-cache`
-- Удалите старые образы: `docker system prune -a`
+- **Backend не стартует** — проверьте, что заданы обязательные env (`POSTGRES_PASSWORD`,
+  `RABBITMQ_PASSWORD`, `TELEGRAM_BOT_TOKEN`); при их отсутствии конфиг падает на старте.
+- **Backend не подключается к БД** — убедитесь, что Postgres поднят (`make logs SERVICE=postgres`),
+  и что хост/порт совпадают (в Docker — `postgres:5432`, локально — `localhost:5433`).
+- **Frontend не видит backend** — проверьте `VITE_BACKEND_*` и доступность API
+  (`curl http://localhost:8081/api/v1/health` в dev).
+- **Пересборка с нуля** — `make clean && make dev` (или `docker system prune -a` для очистки кэша образов).
 
 ## Лицензия
 
-MIT
-
+[MIT](LICENSE)
