@@ -93,15 +93,36 @@ func (c *WbClient) FetchProductByURL(productURL string) (*ProductInfo, error) {
 	}, nil
 }
 
+// wbCardStatus классифицирует статус ответа basket-CDN: ok=карточка найдена;
+// cont=искать в следующем basket (404). Иначе (429/5xx/блок) — стоп скана.
+func wbCardStatus(status int) (ok, cont bool) {
+	switch status {
+	case http.StatusOK:
+		return true, false
+	case http.StatusNotFound:
+		return false, true
+	default:
+		return false, false
+	}
+}
+
 // fetchCard пробует вычисленный basket, затем сканирует известный диапазон.
-// Сетевую ошибку отличаем от 404: при ошибке сети скан прерываем.
+// Прерываем скан при сетевой ошибке ИЛИ не-404 статусе (429/5xx/блок), чтобы не
+// слать до wbMaxBasket запросов при rate-limit/недоступности CDN.
 func (c *WbClient) fetchCard(vol, part, nm int64) (int, string, error) {
 	try := func(b int) (string, bool, error) {
-		body, status, err := httpGet(c.client, wbCardURL(b, vol, part, nm), nil)
+		body, status, err := httpGet(c.client, wbCardURL(b, vol, part, nm), map[string]string{"User-Agent": productUserAgent})
 		if err != nil {
 			return "", false, err
 		}
-		return body, status == http.StatusOK, nil
+		ok, cont := wbCardStatus(status)
+		if ok {
+			return body, true, nil
+		}
+		if cont {
+			return "", false, nil
+		}
+		return "", false, fmt.Errorf("wb: basket-CDN вернул %d", status)
 	}
 
 	computed := volToBasket(vol)

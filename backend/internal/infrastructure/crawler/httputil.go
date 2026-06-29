@@ -11,6 +11,11 @@ import (
 	"github.com/andybalholm/brotli"
 )
 
+// productUserAgent — честное имя нашего бота. Используем там, где источник НЕ фильтрует
+// по UA (WB-CDN). Где честный UA не отдаёт данные — представляемся иначе вынужденно:
+// Ozon — WhatsApp-превью-UA (его allow-list), Яндекс — браузерный UA (боту микроразметку не отдаёт).
+const productUserAgent = "WishCraft/TelegramBot"
+
 // safeImageURL пропускает только http(s)-ссылки (защита от javascript:/data: в og:image);
 // иначе возвращает пустую строку. Фронт рендерит результат строго как <img src>.
 func safeImageURL(raw string) string {

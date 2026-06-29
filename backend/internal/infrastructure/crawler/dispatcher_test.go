@@ -28,7 +28,7 @@ func TestDispatcher_RoutesByHost(t *testing.T) {
 	for rawURL, want := range cases {
 		info, err := d.FetchProductByURL(rawURL)
 		if err != nil || info == nil || info.Title != want {
-			t.Fatalf("%s -> %+v, %v; ожидали %q", rawURL, info, err, want)
+			t.Errorf("%s -> %+v, %v; ожидали %q", rawURL, info, err, want)
 		}
 	}
 }

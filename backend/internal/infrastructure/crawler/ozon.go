@@ -18,11 +18,20 @@ type OzonClient struct {
 
 func NewOzonClient() *OzonClient {
 	return &OzonClient{
-		client: &http.Client{Timeout: 30 * time.Second},
-		uas: []string{
-			"WhatsApp/2.23",
-			"facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)",
+		client: &http.Client{
+			Timeout: 30 * time.Second,
+			// При анти-бот-блоке Ozon зацикливает редиректы (?__rr=...); ограничиваем,
+			// чтобы блок проваливался быстро (последний ответ), а не после 10 редиректов.
+			CheckRedirect: func(_ *http.Request, via []*http.Request) error {
+				if len(via) >= 3 {
+					return http.ErrUseLastResponse
+				}
+				return nil
+			},
 		},
+		// Только WhatsApp: единственный превью-UA, который Ozon реально пускает (allow-list).
+		// facebook/twitter ловят редирект-цикл и не помогают — добавлять рабочие по факту.
+		uas: []string{"WhatsApp/2.23"},
 	}
 }
 

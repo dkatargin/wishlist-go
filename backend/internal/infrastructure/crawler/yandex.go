@@ -1,8 +1,6 @@
 package crawler
 
 import (
-	"compress/flate"
-	"compress/gzip"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -13,8 +11,6 @@ import (
 	"regexp"
 	"strings"
 	"time"
-
-	"github.com/andybalholm/brotli"
 )
 
 // YaMarketClient клиент
@@ -134,26 +130,12 @@ func (c *YaMarketClient) FetchProductByURL(productURL string) (*ProductInfo, err
 		log.Printf("Unexpected status code %d for URL %s, response: %s", resp.StatusCode, productURL, string(body[:min(500, len(body))]))
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
-	var reader io.Reader = resp.Body
-	// Проверяем кодировку ответа
-	switch resp.Header.Get("Content-Encoding") {
-	case "gzip":
-		gzReader, err := gzip.NewReader(resp.Body)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create gzip reader: %w", err)
-		}
-		defer func() { _ = gzReader.Close() }()
-		reader = gzReader
-	case "br":
-		reader = brotli.NewReader(resp.Body)
-	case "deflate":
-		reader = flate.NewReader(resp.Body)
-	}
-	body, err := io.ReadAll(reader)
+	// декомпрессия gzip/deflate/br живёт в общем httputil.readBody
+	body, err := readBody(resp)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
-	return c.parseProductPage(string(body), productURL)
+	return c.parseProductPage(body, productURL)
 }
 
 // ProductInfo содержит информацию о товаре
@@ -219,7 +201,9 @@ func (c *YaMarketClient) parseProductPage(html, productURL string) (*ProductInfo
 	return product, nil
 }
 
-// Supports делает Яндекс-клиент адаптером диспетчера.
+// Supports делает Яндекс-клиент адаптером диспетчера. Хост yandex.ru покрывает
+// ссылки вида yandex.ru/products; конкретный путь валидирует FetchProductByURL
+// (нерелевантные yandex.ru-ссылки он отвергнет ошибкой).
 func (c *YaMarketClient) Supports(host string) bool {
 	return host == "market.yandex.ru" || host == "yandex.ru"
 }

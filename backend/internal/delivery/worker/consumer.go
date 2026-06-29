@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -77,6 +78,12 @@ func (w *Consumer) handleCrawlProduct(payload map[string]interface{}, d amqp.Del
 
 	info, err := w.crawler.FetchProductByURL(productURL)
 	if err != nil {
+		if errors.Is(err, crawler.ErrUnsupportedSource) {
+			// неизвестный источник не станет известным при ретрае — дропаем без реквеу
+			log.Printf("worker: неподдерживаемый источник %s, дроп", productURL)
+			_ = d.Nack(false, false)
+			return
+		}
 		log.Printf("worker: краул %s не удался: %v", productURL, err)
 		nackBounded(d)
 		return

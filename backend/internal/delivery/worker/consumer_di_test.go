@@ -5,6 +5,8 @@ import (
 	"wishlist-go/internal/infrastructure/crawler"
 )
 
+// stubCrawler — заглушка для проверки DI-шва. FetchProductByURL не вызывается
+// в этом тесте, поэтому возврат (nil, nil) допустим и контракт не нарушает.
 type stubCrawler struct{}
 
 func (stubCrawler) FetchProductByURL(string) (*crawler.ProductInfo, error) { return nil, nil }
