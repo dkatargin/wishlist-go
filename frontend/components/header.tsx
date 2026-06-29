@@ -3,11 +3,13 @@ import MenuIcon from '@mui/icons-material/Menu';
 import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import FavoriteIcon from '@mui/icons-material/Favorite';
+import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import * as React from "react";
 import {JSX} from "react";
 import {useNavigate, useParams} from "react-router";
 import {auto} from "@popperjs/core";
+import {AddToFavorites} from "../api/api";
 
 
 const ProfileMenu =   (
@@ -38,8 +40,7 @@ const ProfileMenu =   (
                     </ListItemIcon>
                     <ListItemText slotProps={{primary: { sx: { color: 'white' } }}}>Мои списки</ListItemText>
                 </MenuItem>
-                {/*Включить когда будет готов бекенд*/}
-                <MenuItem disabled={true} onClick={() => handleMenuClick("favorites")}>
+                <MenuItem onClick={() => handleMenuClick("favorites")}>
                     <ListItemIcon>
                         <IconButton
                             size="medium"
@@ -58,7 +59,7 @@ const ProfileMenu =   (
     );
 };
 
-export default function Header({title, addType}: { title: string, addType: string | null }): JSX.Element {
+export default function Header({title, addType, favoriteId}: { title: string, addType: string | null, favoriteId?: string }): JSX.Element {
     const [profileMenuOpen, setProfileMenuOpen] = React.useState(false);
     const navigate = useNavigate();
     const params = useParams();
@@ -66,6 +67,12 @@ export default function Header({title, addType}: { title: string, addType: strin
 
     const handleProfileMenuToggle = () => {
         setProfileMenuOpen((prev) => !prev);
+    }
+    const handleFavoriteClick = () => {
+        if (!favoriteId) return;
+        AddToFavorites(favoriteId)
+            .then(() => alert("Список добавлен в избранное"))
+            .catch(() => alert("Не удалось добавить в избранное"));
     }
     const handleAddButtonClick = () => {
         if (addType === "wish") {
@@ -97,6 +104,16 @@ export default function Header({title, addType}: { title: string, addType: strin
                 <Typography variant="h6" component="div" sx={{flexGrow: 1}}>
                     {title}
                 </Typography>
+                {favoriteId &&
+                    <IconButton
+                        size="medium"
+                        edge="end"
+                        color="inherit"
+                        aria-label="add to favorites"
+                        onClick={handleFavoriteClick}
+                    >
+                        <BookmarkAddIcon/>
+                    </IconButton>}
                 {addType &&
                     <IconButton
                         size="medium"

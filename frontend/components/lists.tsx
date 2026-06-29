@@ -1,41 +1,53 @@
 import {JSX, useEffect, useState} from "react";
 import {useNavigate} from "react-router";
 import {Card, CardActionArea, CardContent, Typography, Box} from "@mui/material";
-import {Edit, DeleteForever} from "@mui/icons-material";
-import {DeleteWishlist, EditWishlist, FetchFavorites, FetchLists} from "../api/api";
+import {Edit, DeleteForever, BookmarkRemove} from "@mui/icons-material";
+import {DeleteWishlist, EditWishlist, FetchFavorites, FetchLists, RemoveFromFavorites} from "../api/api";
 import {List} from "../api/interfaces"
 import {CreateWishlistDialog} from "./dialogs";
 import * as React from "react";
 
 
-const WishlistCard = ({cardObject, onEdit, onDelete, onCardClick}: {
+const WishlistCard = ({cardObject, is_favorites, onEdit, onDelete, onRemoveFavorite, onCardClick}: {
     cardObject: List,
-    onEdit: any, onDelete: any, onCardClick: any
+    is_favorites: boolean,
+    onEdit: any, onDelete: any, onRemoveFavorite: any, onCardClick: any
 }) => {
+    const circleSx = {
+        position: 'absolute' as const,
+        top: 8,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '40px',
+        height: '40px',
+        borderRadius: '50%',
+        backgroundColor: '#f4f4f4',
+        cursor: 'pointer',
+        '&:hover': {backgroundColor: '#d6d6d6'},
+    };
+
     const cardActions = () => {
+        // Избранное — чужие списки: единственное действие «убрать из избранного»
+        // (редактировать/удалять чужой список нельзя).
+        if (is_favorites) {
+            return <Box
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onRemoveFavorite(cardObject?.share_code);
+                }}
+                sx={{...circleSx, top: 8, left: 8}}
+            >
+                <BookmarkRemove sx={{color: '#d02a2a', fontSize: '25px'}}/>
+            </Box>
+        }
         return <>
             <Box
-
                 onClick={(e) => {
                     e.stopPropagation();
                     onDelete(cardObject?.share_code);
                 }}
-                sx={{
-                    position: 'absolute',
-                    top: 8,
-                    left: 8,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '50%',
-                    backgroundColor: '#f4f4f4',
-                    cursor: 'pointer',
-                    '&:hover': {
-                        backgroundColor: '#d6d6d6',
-                    },
-                }}
+                sx={{...circleSx, left: 8}}
             >
                 <DeleteForever sx={{color: '#d02a2a', fontSize: '25px'}}/>
             </Box>
@@ -44,22 +56,7 @@ const WishlistCard = ({cardObject, onEdit, onDelete, onCardClick}: {
                     e.stopPropagation();
                     onEdit(cardObject);
                 }}
-                sx={{
-                    position: 'absolute',
-                    top: 8,
-                    right: 8,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '50%',
-                    backgroundColor: '#f4f4f4',
-                    cursor: 'pointer',
-                    '&:hover': {
-                        backgroundColor: '#d6d6d6',
-                    },
-                }}
+                sx={{...circleSx, right: 8}}
             >
                 <Edit sx={{color: '#424242', fontSize: '25px'}}/>
             </Box>
@@ -159,7 +156,7 @@ const WishlistCard = ({cardObject, onEdit, onDelete, onCardClick}: {
 //     return cards;
 // };
 
-export default function CardsList({isEditable}: { isEditable: boolean }): JSX.Element {
+export default function CardsList({is_favorites}: { is_favorites: boolean }): JSX.Element {
     // Возвращает списки желаний для ListsPage
     // is_favorites - true, если нужно отобразить сохраненные чужие списки
     const [lists, setLists] = useState(Array<List>());
@@ -183,7 +180,7 @@ export default function CardsList({isEditable}: { isEditable: boolean }): JSX.El
             setLists(data);
         }
 
-        if (isEditable) {
+        if (is_favorites) {
             fetchFavorites().then(() => {
                     setDataLoaded(true)
                 }
@@ -194,7 +191,7 @@ export default function CardsList({isEditable}: { isEditable: boolean }): JSX.El
                 }
             )
         }
-    }, [isEditable]);
+    }, [is_favorites]);
 
     const cardClickHandler = (id: string) => {
         navigate(`/wishlist/${id}`);
@@ -209,6 +206,12 @@ export default function CardsList({isEditable}: { isEditable: boolean }): JSX.El
         DeleteWishlist(id).then(() => {
             setLists(lists.filter((item: List) => item.share_code !== id));
         })
+    }
+
+    const cardRemoveFavoriteHandler = (id: string) => {
+        RemoveFromFavorites(id)
+            .then((updated) => setLists(updated))
+            .catch(() => alert("Не удалось убрать из избранного"));
     }
 
     const dialogCloseHandler = () => {
@@ -248,7 +251,9 @@ export default function CardsList({isEditable}: { isEditable: boolean }): JSX.El
 
     const cardsList = () => {
         return lists.map((item: List) => (
-            <WishlistCard key={item.share_code} cardObject={item} onEdit={cardEditHandler} onDelete={cardDeleteHandler}
+            <WishlistCard key={item.share_code} cardObject={item} is_favorites={is_favorites}
+                          onEdit={cardEditHandler} onDelete={cardDeleteHandler}
+                          onRemoveFavorite={cardRemoveFavoriteHandler}
                           onCardClick={cardClickHandler}/>
         ))
     }

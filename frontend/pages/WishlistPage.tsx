@@ -60,7 +60,7 @@ export default function WishlistPage() {
 
     return (
         <>
-            <Header title={"Желания"} addType={"wish"}/>
+            <Header title={"Желания"} addType={"wish"} favoriteId={wishlistId}/>
             <Container sx={{
                 alignItems: 'center',
                 justifyContent: 'center',

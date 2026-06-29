@@ -50,8 +50,15 @@ const backendAPI = async (method: string, endpoint: string, body: object | null)
 
 };
 
-const AddToFavorites = async (id: string): Promise<List[]> => {
-    return await backendAPI("POST", `wishlist/${id}/favorite`, null);
+const AddToFavorites = async (id: string): Promise<void> => {
+    await backendAPI("POST", `wishlist/${id}/favorite`, null);
+}
+
+// Убрать список из избранного. backendAPI не парсит тело DELETE-ответа,
+// поэтому перечитываем актуальный список избранного.
+const RemoveFromFavorites = async (id: string): Promise<List[]> => {
+    await backendAPI("DELETE", `wishlist/${id}/favorite`, null);
+    return await FetchFavorites();
 }
 
 // Получение всех списков
@@ -127,5 +134,5 @@ const DeleteWish = async (wishlistId: string, wishId: string) :Promise<void> => 
     await backendAPI("DELETE", `list/${wishlistId}/wishes/${wishId}`, null);
 }
 
-export {AddToFavorites, FetchLists, FetchFavorites, CreateWishlist, FetchWishlist, EditWishlist,
+export {AddToFavorites, RemoveFromFavorites, FetchLists, FetchFavorites, CreateWishlist, FetchWishlist, EditWishlist,
     DeleteWishlist, CreateWish, FetchWish, EditWish, DeleteWish};

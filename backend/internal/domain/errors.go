@@ -11,4 +11,6 @@ var (
 	ErrSelfReservation         = errors.New("cannot reserve item from own wishlist")
 	ErrReservationExists       = errors.New("reservation already exists")
 	ErrReserveQuantityExceeded = errors.New("reserve quantity exceeds available")
+
+	ErrFavoriteNotFound = errors.New("favorite not found")
 )
