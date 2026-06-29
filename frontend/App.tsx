@@ -9,6 +9,7 @@ const App: React.FC = () => {
         <BrowserRouter>
             <Routes>
                 <Route path="/" element={<ListsPage />} />
+                <Route path="/favorites" element={<ListsPage />} />
                 <Route path="/wishlist/new" element={<WishlistPage />} />
                 <Route path="/wishlist/:id" element={<WishlistPage />} />
                 <Route path="/wishlist/:id/wish/new" element={<WishDetailPage />} />

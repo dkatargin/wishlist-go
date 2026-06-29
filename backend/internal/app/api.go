@@ -9,6 +9,7 @@ import (
 	"wishlist-go/internal/infrastructure/queue"
 	"wishlist-go/internal/repository/postgres"
 	"wishlist-go/internal/usecase/account"
+	"wishlist-go/internal/usecase/favorite"
 	"wishlist-go/internal/usecase/reservation"
 	"wishlist-go/internal/usecase/wishitem"
 	"wishlist-go/internal/usecase/wishlist"
@@ -31,12 +32,14 @@ func NewAPIApp(cfg *config.AppConfigStruct) *APIApp {
 	wishlistRepo := postgres.NewWishlistRepository(db)
 	wishitemRepo := postgres.NewWishItemRepository(db)
 	reservationRepo := postgres.NewReservationRepository(db)
+	favoriteRepo := postgres.NewFavoriteRepository(db)
 
 	// Use cases
 	accountUC := account.NewService(accountRepo)
 	wishlistUC := wishlist.NewService(wishlistRepo)
 	wishitemUC := wishitem.NewService(wishitemRepo, wishlistRepo, mqClient)
 	reservationUC := reservation.NewService(reservationRepo, wishitemRepo)
+	favoriteUC := favorite.NewService(favoriteRepo, wishlistRepo)
 
 	// HTTP router
 	router := gin.Default()
@@ -49,6 +52,7 @@ func NewAPIApp(cfg *config.AppConfigStruct) *APIApp {
 	wishitemHandler := handler.NewWishItemHandler(wishitemUC, wishlistUC)
 	shareHandler := handler.NewShareHandler(wishlistUC, wishitemUC, reservationUC)
 	reservationHandler := handler.NewReservationHandler(reservationUC)
+	favoriteHandler := handler.NewFavoriteHandler(favoriteUC)
 	// Routes
 	api := router.Group("/api/v1")
 	{
@@ -78,6 +82,11 @@ func NewAPIApp(cfg *config.AppConfigStruct) *APIApp {
 			authorized.DELETE("share/:shareCode/wishes/:wishId/reserve", reservationHandler.Cancel)
 			authorized.POST("reservations/:reservationId/purchased", reservationHandler.MarkPurchased)
 			authorized.GET("reservations", reservationHandler.ListMine)
+
+			// Избранное (сохранённые чужие списки); :id = ShareCode
+			authorized.GET("favorites", favoriteHandler.List)
+			authorized.POST("wishlist/:id/favorite", favoriteHandler.Add)
+			authorized.DELETE("wishlist/:id/favorite", favoriteHandler.Remove)
 
 			authorized.DELETE("account", accountHandler.Delete)
 		}

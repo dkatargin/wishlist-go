@@ -10,6 +10,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&wishlistModel{},
 		&wishItemModel{},
 		&reservationModel{},
+		&favoriteModel{},
 		&migrationModel{},
 	); err != nil {
 		return err
