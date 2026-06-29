@@ -15,6 +15,12 @@ const backendAPI = async (method: string, endpoint: string, body: object | null)
         }
     }
 
+    console.log(import.meta.env.VITE_BACKEND_HOST)
+    console.log(import.meta.env.VITE_BACKEND_PORT)
+    console.log(import.meta.env.VITE_BACKEND_SCHEME)
+    console.log(import.meta.env.VITE_AUTH_MOCKUP)
+    console.log(import.meta.env.VITE_DEPLOYMENT_TYPE)
+
     const host = import.meta.env.VITE_BACKEND_HOST
     const port = import.meta.env.VITE_BACKEND_PORT
     const hostScheme = import.meta.env.VITE_BACKEND_SCHEME
@@ -82,10 +88,19 @@ const DeleteWishlist = async (id: string): Promise<void> => {
     await backendAPI("DELETE", `list/${id}`, null);
 }
 
+const CreateWishWithCrawler = async (wishlistId: string, url: string): Promise<Wish> => {
+    const response = await backendAPI("POST", `list/${wishlistId}/wishes/crawl`, {url: url});
+    return response.wish_item;
+}
+
 // Создание желания в списке
 const CreateWish = async (wishlistId: string,
                           name: string, market_url: string, market_pic: string, market_price: number,
                           market_currency: string, market_quantity: number, priority: number): Promise<Wish> => {
+
+    if (market_url && !name) {
+        return await CreateWishWithCrawler(wishlistId, market_url);
+    }
 
     const response = await backendAPI("POST", `list/${wishlistId}/wishes`,
         {

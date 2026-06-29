@@ -8,8 +8,8 @@ export default defineConfig({
   publicDir: "public",
   base: `/static/${version}/`, // базовый путь для assets в S3
   server: {
-    port: 3001, // порт dev-сервера
-    open: true, // открывать браузер при запуске
+    port: 3002, // порт dev-сервера
+    open: false, // открывать браузер при запуске
   },
   build: {
     outDir: "dist", // папка для прод-сборки
@@ -18,12 +18,18 @@ export default defineConfig({
   },
   define: {
     __APP_VERSION__: JSON.stringify(version),
-    VITE_BACKEND_HOST: JSON.stringify(
+    "import.meta.env.VITE_BACKEND_HOST": JSON.stringify(
       process.env.VITE_BACKEND_HOST || "wish.dimhost.ru",
     ),
-    VITE_BACKEND_PORT: JSON.stringify(process.env.VITE_BACKEND_PORT || "443"),
-    VITE_BACKEND_SCHEME: JSON.stringify(
+    "import.meta.env.VITE_BACKEND_PORT": JSON.stringify(process.env.VITE_BACKEND_PORT || "443"),
+    "import.meta.env.VITE_BACKEND_SCHEME": JSON.stringify(
       process.env.VITE_BACKEND_SCHEME || "https",
+    ),
+    "import.meta.env.VITE_DEPLOYMENT_TYPE": JSON.stringify(
+      process.env.VITE_DEPLOYMENT_TYPE || "production",
+    ),
+    "import.meta.env.VITE_AUTH_MOCKUP": JSON.stringify(
+      process.env.VITE_AUTH_MOCKUP || "",
     ),
   },
 });

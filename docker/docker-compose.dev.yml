@@ -1,15 +1,11 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
     container_name: wishlist-postgres-develop
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-wishlist}
-      POSTGRES_USER: ${POSTGRES_USER:-wishlist_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-securepassword}
+    env_file:
+      - .env.dev
     ports:
-      - "${POSTGRES_PORT:-5433}:5432"
+      - "${POSTGRES_PUBLISH_PORT:-5433}:5432"
     volumes:
       - postgres_data_develop:/var/lib/postgresql/data
       - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -24,7 +20,31 @@ services:
     labels:
       - "wishlist.environment=develop"
 
-  backend:
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: wishlist-rabbitmq-develop
+    # Образ rabbitmq читает RABBITMQ_DEFAULT_*, поэтому мапим из общих RABBITMQ_* (интерполяция из --env-file).
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-wishlist_user}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD must be set}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-wishlist}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq_data_develop:/var/lib/rabbitmq
+    networks:
+      - wishlist-network-develop
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    labels:
+      - "wishlist.environment=develop"
+
+  api:
     build:
       context: ../backend
       dockerfile: Dockerfile.develop
@@ -38,14 +58,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    environment:
-      - GIN_MODE=debug
-      - CONFIG_PATH=/app/config.yaml
-      - LOG_LEVEL=debug
-      - ENABLE_PROFILING=true
+      rabbitmq:
+        condition: service_healthy
+    env_file:
+      - .env.dev
     volumes:
       - ../backend:/app
-      - ../docker/etc/config.develop.yaml:/app/config.yaml:ro
+      - ../backend/.air.toml:/app/.air.toml:ro
       - go-cache:/go/pkg/mod  # Кэш Go модулей
     networks:
       - wishlist-network-develop
@@ -54,8 +73,34 @@ services:
       - "wishlist.environment=develop"
     restart: unless-stopped
 
+  worker:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.develop
+      args:
+        - GO_VERSION=${GO_VERSION:-1.25}
+    container_name: wishlist-worker-develop
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    env_file:
+      - .env.dev
+    volumes:
+      - ../backend:/app
+      - ../backend/.air.worker.toml:/app/.air.toml:ro
+      - worker-go-cache:/go/pkg/mod
+    networks:
+      - wishlist-network-develop
+    command: air -c .air.toml
+    labels:
+      - "wishlist.environment=develop"
+    restart: unless-stopped
+
   frontend:
-    image: oven/bun:1
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
+      target: builder
     container_name: wishlist-frontend-develop
     ports:
       - "${FRONTEND_PORT:-3002}:3002"
@@ -63,14 +108,8 @@ services:
       - ../frontend:/app
       - frontend-node-modules:/app/node_modules
     working_dir: /app
-    environment:
-      - VITE_BACKEND_HOST=${VITE_BACKEND_HOST:-localhost}
-      - VITE_BACKEND_PORT=${BACKEND_PORT:-8081}
-      - VITE_BACKEND_SCHEME=${VITE_BACKEND_SCHEME:-http}
-      - VITE_APP_VERSION=${APP_VERSION:-develop-1.0.0}
-      - VITE_AUTH_MOCKUP=${VITE_AUTH_MOCKUP}
-      - VITE_DEPLOYMENT_TYPE=development
-      - VITE_ENABLE_DEBUG=true
+    env_file:
+      - .env.dev
     networks:
       - wishlist-network-develop
     command: sh -c "bun install && bun run dev --host 0.0.0.0 --port 3002"
@@ -81,8 +120,12 @@ services:
 volumes:
   postgres_data_develop:
     name: wishlist_postgres_develop
+  rabbitmq_data_develop:
+    name: wishlist_rabbitmq_develop
   go-cache:
     name: wishlist_go_cache
+  worker-go-cache:
+    name: wishlist_worker_go_cache
   frontend-node-modules:
     name: wishlist_frontend_node_modules
 
@@ -90,4 +133,3 @@ networks:
   wishlist-network-develop:
     name: wishlist-network-develop
     driver: bridge
-

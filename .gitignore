@@ -4,7 +4,6 @@
 *.swp
 *.swo
 *~
-config*.yaml
 
 # Dependencies
 node_modules/
@@ -26,11 +25,8 @@ backend/server
 coverage/
 *.test
 
-# Config files (keep templates)
-config.yaml
+# Config is env-only; keep the .env template
 .env*
-
-# Keep .env templates
 !.env.example
 
 
@@ -51,8 +47,8 @@ Thumbs.db
 *.pid
 
 # Go
-go.work
-go.work.sum
+backend/go.work
+backend/go.work.sum
 
 # Debug
 __debug_bin
