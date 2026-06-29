@@ -18,12 +18,12 @@ import (
 // Consumer слушает очередь задач и обрабатывает сообщения воркера.
 type Consumer struct {
 	mq       *queue.RabbitMQClient
-	crawler  *crawler.YaMarketClient
+	crawler  crawler.Crawler
 	itemRepo domain.WishItemRepository
 }
 
 // NewConsumer собирает consumer с инъекцией зависимостей.
-func NewConsumer(mq *queue.RabbitMQClient, c *crawler.YaMarketClient, itemRepo domain.WishItemRepository) *Consumer {
+func NewConsumer(mq *queue.RabbitMQClient, c crawler.Crawler, itemRepo domain.WishItemRepository) *Consumer {
 	return &Consumer{mq: mq, crawler: c, itemRepo: itemRepo}
 }
 

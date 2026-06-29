@@ -25,8 +25,12 @@ func NewWorkerApp(cfg *config.AppConfigStruct) *WorkerApp {
 	db := database.ConnectDB(&cfg.Database)
 	itemRepo := postgres.NewWishItemRepository(db)
 	mqClient := queue.NewRabbitMQClient(&cfg.RabbitMQ)
-	yaClient := crawler.NewYaMarketClient()
-	consumer := worker.NewConsumer(mqClient, yaClient, itemRepo)
+	productCrawler := crawler.NewDispatcher(
+		crawler.NewYaMarketClient(),
+		crawler.NewOzonClient(),
+		crawler.NewWbClient(),
+	)
+	consumer := worker.NewConsumer(mqClient, productCrawler, itemRepo)
 
 	return &WorkerApp{
 		consumer: consumer,

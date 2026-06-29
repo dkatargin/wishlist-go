@@ -37,7 +37,7 @@ func NewWishlistRepository(db *gorm.DB) domain.WishlistRepository {
 func (r *wishlistRepo) CreateWishlist(ctx context.Context, wishlist *domain.Wishlist) error {
 	model := wlDomainToModel(wishlist)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	if err := r.db.WithContext(ctx).Create(&model).Error; err != nil {
@@ -61,7 +61,7 @@ func (r *wishlistRepo) CreateWishlist(ctx context.Context, wishlist *domain.Wish
 func (r *wishlistRepo) GetWishlistByCode(ctx context.Context, shareCode uuid.UUID) (*domain.Wishlist, error) {
 	var model wishlistModel
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	if err := r.db.WithContext(ctx).First(&model, "share_code = ?", shareCode.String()).Error; err != nil {
@@ -78,7 +78,7 @@ func (r *wishlistRepo) GetWishlistByCode(ctx context.Context, shareCode uuid.UUI
 func (r *wishlistRepo) GetWishlistsByOwnerID(ctx context.Context, ownerID int64, offset int, limit int) ([]*domain.Wishlist, error) {
 	var models []wishlistModel
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	if err := r.db.WithContext(ctx).
@@ -102,7 +102,7 @@ func (r *wishlistRepo) GetWishlistsByOwnerID(ctx context.Context, ownerID int64,
 func (r *wishlistRepo) UpdateWishlist(ctx context.Context, wishlist *domain.Wishlist) error {
 	model := wlDomainToModel(wishlist)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	updatedAt := time.Now()
@@ -138,7 +138,7 @@ func (r *wishlistRepo) UpdateWishlist(ctx context.Context, wishlist *domain.Wish
 
 // DeleteWishlist удаляет вишлист
 func (r *wishlistRepo) DeleteWishlist(ctx context.Context, shareCode uuid.UUID) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	result := r.db.WithContext(ctx).Delete(&wishlistModel{}, "share_code = ?", shareCode.String())

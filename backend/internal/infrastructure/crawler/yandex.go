@@ -142,7 +142,7 @@ func (c *YaMarketClient) FetchProductByURL(productURL string) (*ProductInfo, err
 		if err != nil {
 			return nil, fmt.Errorf("failed to create gzip reader: %w", err)
 		}
-		defer gzReader.Close()
+		defer func() { _ = gzReader.Close() }()
 		reader = gzReader
 	case "br":
 		reader = brotli.NewReader(resp.Body)
@@ -190,8 +190,9 @@ func (c *YaMarketClient) parseProductPage(html, productURL string) (*ProductInfo
 			product.ImageURL = match[1]
 		}
 
-		// Извлекаем offers.price
-		pricePattern := regexp.MustCompile(`"offers"\s*:\s*{[^}]*"price"\s*:\s*"([^"]*)"`)
+		// Извлекаем offers.price. Я.Маркет отдаёт цену числом ("price":5304),
+		// но историческая разметка встречалась и строкой ("price":"5304") — берём оба.
+		pricePattern := regexp.MustCompile(`"offers"\s*:\s*{[^}]*"price"\s*:\s*"?([0-9.]+)"?`)
 		if match := pricePattern.FindStringSubmatch(jsonData); len(match) > 1 {
 			product.Price = match[1] + " ₽"
 		}
@@ -216,4 +217,9 @@ func (c *YaMarketClient) parseProductPage(html, productURL string) (*ProductInfo
 	}
 
 	return product, nil
+}
+
+// Supports делает Яндекс-клиент адаптером диспетчера.
+func (c *YaMarketClient) Supports(host string) bool {
+	return host == "market.yandex.ru" || host == "yandex.ru"
 }

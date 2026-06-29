@@ -78,7 +78,7 @@ var tmaHeaderRe = regexp.MustCompile(`^tma (.+)$`)
 // Возвращает данные и true только при валидной подписи и ненулевом user.id; ответ не пишет.
 func parseAndValidateTelegram(authHeader, botToken string) (*TelegramAuthData, bool) {
 	matches := tmaHeaderRe.FindStringSubmatch(authHeader)
-	if matches == nil || len(matches) < 2 {
+	if len(matches) < 2 {
 		return nil, false
 	}
 	rawAuthData := matches[1]

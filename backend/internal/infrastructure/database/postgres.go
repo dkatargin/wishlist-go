@@ -10,11 +10,6 @@ import (
 	"gorm.io/gorm"
 )
 
-type DB struct {
-	db  *gorm.DB
-	cfg *config.DB
-}
-
 func PostgresDSN(host string, port int, user string, password string, dbname string) string {
 	return fmt.Sprintf(
 		"host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",

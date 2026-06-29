@@ -52,8 +52,8 @@ func NewRabbitMQClient(cfg *config.RabbitMQ) *RabbitMQClient {
 		nil,              // arguments
 	)
 	if err != nil {
-		ch.Close()
-		conn.Close()
+		_ = ch.Close()
+		_ = conn.Close()
 		log.Fatalf("Failed to declare a queue: %v", err)
 	}
 

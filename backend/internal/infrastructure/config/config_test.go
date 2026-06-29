@@ -64,7 +64,7 @@ func TestLoad_OverridesFromEnv(t *testing.T) {
 func TestLoad_MissingRequiredErrors(t *testing.T) {
 	t.Setenv("POSTGRES_PASSWORD", "pgpass")
 	t.Setenv("RABBITMQ_PASSWORD", "rmqpass")
-	os.Unsetenv("TELEGRAM_BOT_TOKEN")
+	_ = os.Unsetenv("TELEGRAM_BOT_TOKEN")
 
 	if _, err := Load(); err == nil {
 		t.Fatal("expected error when TELEGRAM_BOT_TOKEN is missing")
